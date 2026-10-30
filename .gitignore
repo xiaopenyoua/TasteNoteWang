@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Android / Gradle
+app/.gradle/
+app/build/
+app/local.properties
+app/.cxx/
+app/captures/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# 设计源文件（本地保留，不入库）
+design/source/
+
+# 临时与导出
+*.tmp
+*.log
+tmp/
+.DS_Store
+
+# 用户数据 / 抓取内容（永不入库）
+data/
+*.sqlite
+*.db
