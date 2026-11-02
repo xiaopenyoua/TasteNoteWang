@@ -24,7 +24,8 @@ TasteNoteWang/
 ├── CLAUDE.md            # Claude 入口（只含 @AGENTS.md）
 │
 ├── design/              # 设计侧：产品与界面
-│   ├── product/         #   PRD、信息架构、页面规格、视觉语言
+│   ├── product/         #   PRD、信息架构、页面规格、视觉语言、已实现 UI 规格
+│   ├── prototype/       #   可交互设计稿（与已实现 UI/动画逐屏对齐）
 │   ├── wireframes/      #   低保真线框
 │   ├── exports/         #   视觉稿导出与切图
 │   └── source/          #   设计源文件（gitignore）
@@ -52,6 +53,8 @@ TasteNoteWang/
 |---|---|
 | 东西放哪里、文件怎么命名 | [`AGENTS.md`](AGENTS.md) |
 | 设计侧总索引 | [`design/README.md`](design/README.md) |
+| 已实现 UI 交互设计稿 | [`design/prototype/ui.html`](design/prototype/ui.html) |
+| 设计稿与代码逐屏对照 | [`design/product/implemented-ui-spec.md`](design/product/implemented-ui-spec.md) |
 | 产品需求与界面规格 | [`design/product/`](design/product/) |
 | 判断依据总索引 | [`docs/README.md`](docs/README.md) |
 | 市场调研 | [`docs/research/2026-10-30-market-research.md`](docs/research/2026-10-30-market-research.md) |
@@ -104,6 +107,7 @@ bash android/tools/verify-layout.sh
 ## 当前进度
 
 - [x] 目录契约与可执行自检（`AGENTS.md` + `verify-layout.sh`）
+- [x] 已实现 UI 设计稿（`design/prototype/ui.html`）与逐屏实现规格
 - [x] 市场调研（7 维度 + 证据附录 + 对抗审查）
 - [x] 技术方案调研（三平台实测 + GitHub 方案对比）
 - [x] 产品设计（PRD / 信息架构 / 页面规格 / Apple 风格视觉）

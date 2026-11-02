@@ -58,6 +58,8 @@ n=$(find design -type f \( -name '*.kt' -o -name '*.kts' -o -name 'build.gradle*
 [ "$n" = 0 ] && ok "design/ 下没有 Kotlin / Gradle 文件" || { bad "design/ 下有 $n 个代码/构建文件"; find design -type f \( -name '*.kt' -o -name '*.kts' -o -name 'build.gradle*' \) | sed 's/^/      /'; }
 n=$(find design -type d \( -name res -o -name 'mipmap-*' -o -name 'drawable-*' -o -name values \) 2>/dev/null | wc -l | tr -d ' ')
 [ "$n" = 0 ] && ok "design/ 下没有 res 形状目录" || { bad "design/ 下有 $n 个 res 形状目录"; find design -type d \( -name res -o -name 'mipmap-*' -o -name 'drawable-*' -o -name values \) | sed 's/^/      /'; }
+n=$(find design -type f -name '*.html' -not -path 'design/prototype/*' 2>/dev/null | wc -l | tr -d ' ')
+[ "$n" = 0 ] && ok "design/ 的 .html 只在 design/prototype/" || { bad "design/prototype/ 之外有 $n 个 .html"; find design -type f -name '*.html' -not -path 'design/prototype/*' | sed 's/^/      /'; }
 n=$(find android \( -name build -o -name .gradle -o -name .kotlin \) -prune -o -type f \( -name '*.html' -o -name '*.svg' \) -print 2>/dev/null | wc -l | tr -d ' ')
 [ "$n" = 0 ] && ok "android/ 下没有 .html / .svg 设计稿" || { bad "android/ 下有 $n 个 .html / .svg"; find android \( -name build -o -name .gradle -o -name .kotlin \) -prune -o -type f \( -name '*.html' -o -name '*.svg' \) -print | sed 's/^/      /'; }
 n=$(find android -name '*.md' -not -path 'android/docs/*' -not -path '*/build/*' 2>/dev/null | wc -l | tr -d ' ')
@@ -69,6 +71,8 @@ n=$(find design/exports design/wireframes -type f ! \( -name '*.png' -o -name '*
 [ "$n" = 0 ] && ok "design/exports 与 wireframes 只有图片/PDF" || { bad "design/exports 或 wireframes 混进非图片"; find design/exports design/wireframes -type f ! \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' -o -name '*.pdf' -o -name '*.svg' \) | sed 's/^/      /'; }
 n=$(find design/product -type f ! -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
 [ "$n" = 0 ] && ok "design/product 只有 .md" || { bad "design/product 混进非 .md 文件"; find design/product -type f ! -name '*.md' | sed 's/^/      /'; }
+n=$(find design/prototype -type f ! -name '*.html' ! -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+[ "$n" = 0 ] && ok "design/prototype 只有 .html / .md" || { bad "design/prototype 混进其他文件"; find design/prototype -type f ! -name '*.html' ! -name '*.md' | sed 's/^/      /'; }
 n=$(find design docs -type d \( -name build -o -name .gradle -o -name .kotlin \) 2>/dev/null | wc -l | tr -d ' ')
 [ "$n" = 0 ] && ok "design/ 与 docs/ 下没有生成物目录" || { bad "design/ 或 docs/ 下出现生成物目录"; find design docs -type d \( -name build -o -name .gradle -o -name .kotlin \) | sed 's/^/      /'; }
 

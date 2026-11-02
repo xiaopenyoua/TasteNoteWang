@@ -60,6 +60,7 @@ docs/ 事实与取舍  ──▶  design/ 产品与界面规格  ──▶  andr
 | `design/product/` | 产品与界面规格 | PRD、信息架构、页面规格、视觉语言（语义名 `.md`） | 实现细节、代码片段文件、调研正文 | 人 |
 | `design/wireframes/` | 低保真线框 | 布局草图（`.png` / `.jpg` / `.pdf`） | 高保真稿、源文件、Android 资源 | 人 |
 | `design/exports/` | 视觉稿导出与切图 | `.png` / `.jpg` / `.pdf` / `.svg` 导出物 | `res/` 字节副本、未引用批次图 | 人 |
+| `design/prototype/` | 可交互设计稿 | 自包含 `.html` 原型、说明 `.md` | 代码工程、构建配置、图片批次、未实现功能 | 人 |
 | `design/source/` | 设计源文件（本地） | Figma / Sketch / PSD 等源文件 | 任何需要入库的内容（整个目录 gitignore） | 人（本机） |
 | `android/` | 开发侧全部产物 | Gradle 工程、`app/`、实现文档、开发脚本 | 设计稿、市场调研、APK、`build/`（生成物） | 开发侧 |
 | `android/app/` | 可执行模块 | `src/`、`res/`、`schemas/`、`build.gradle.kts` | 任何文档、设计稿、抓包 | 开发侧 |
@@ -96,6 +97,7 @@ ls -d */        # 只允许 android/ design/ docs/ local/
 ```
 find design -type f \( -name '*.kt' -o -name '*.kts' -o -name 'build.gradle*' \)   # 必须为空
 find design -type d \( -name res -o -name 'mipmap-*' -o -name 'drawable-*' -o -name values \)  # 必须为空
+find design -type f -name '*.html' -not -path 'design/prototype/*'                # 必须为空
 find android -type f \( -name '*.html' -o -name '*.svg' \)                        # 必须为空
 ```
 
@@ -106,6 +108,7 @@ find android -type f \( -name '*.html' -o -name '*.svg' \)                      
 
 - `design/source/` 只放源文件，且整体 gitignore；需要共享的导出物进 `design/exports/`。
 - `design/exports/`、`design/wireframes/` 只放图片/PDF，不放 `.md`。
+- `design/prototype/` 只放自包含 `.html` 与说明 `.md`；HTML 内可以内联 CSS/JS，但**不得外链网络资源，也不得放独立脚本文件**。
 - `android/docs/` 只放实现文档，不放代码、不放测试数据文件（测试数据写进 `.md`）。
 - 生成物（`build/`、`.gradle/`、`.kotlin/`）只在 `android/` 下出现，且必须 gitignore。
 
@@ -173,7 +176,7 @@ find design docs -type d \( -name assets -o -name tmp -o -name out -o -name misc
 
 判定法：**看脚本的写路径。写进谁的目录，脚本就属于谁。**
 
-- `design/` 下**不得有任何脚本**（`.sh` / `.py` / `.mjs` / `.js`）。
+- `design/` 下**不得有任何独立脚本文件**（`.sh` / `.py` / `.mjs` / `.js`）；`design/prototype/*.html` 内联的 JS 属于设计稿，不算脚本。
 - 写 `android/` 的脚本放 `android/tools/`。
 - 脚本不得写 `design/` 或 `docs/`。
 
@@ -227,8 +230,8 @@ bash android/tools/verify-layout.sh
 七项，输出 `★ 布局自检通过` 即退出码 0，任一 FAIL 即退出码 1（不在仓库根跑是退出码 2）：
 
 1. 顶层只有三个内容目录 + `local/`（R1）
-2. 单一归属：`design/` 无代码与 `res` 形状目录，`android/` 无 `.html` / `.svg`（R2）
-3. 文档与产物分层：`design/exports`、`wireframes` 只有图片/PDF，生成物只在 `android/`（R3）
+2. 单一归属：`design/` 无代码与 `res` 形状目录、`.html` 只在 `design/prototype/`；`android/` 无 `.html` / `.svg`（R2）
+3. 文档与产物分层：`design/exports`、`wireframes` 只有图片/PDF；`design/prototype` 只有 `.html`/`.md`；生成物只在 `android/`（R3）
 4. 命名：无 `NN-`（ADR 与日期快照除外）、无版本/状态词（R4 / R5）
 5. 禁用目录：无 `archive` `old` `backup` `tmp` `out` `misc` `assets` `dyres`（R6 / R8）
 6. 活文档断链：所有 `.md` 的相对链接必须能解析（R7）

@@ -11,6 +11,9 @@ related:
 
 # 页面与交互规格
 
+> **实现状态（2026-11-02）**：本文是早期设计意图，其中长按菜单、下拉刷新、排序菜单、食材勾选、分享、平板左右分栏等条目**尚未实现**。
+> 已实现 UI 以 [`implemented-ui-spec.md`](implemented-ui-spec.md) 和 [`../prototype/ui.html`](../prototype/ui.html) 为准；未实现清单见 [`visual-language.md`](visual-language.md) 第 9 节。
+
 > 每个页面写四件事：结构、动作、状态、适配。数值来自设计系统，不在这里重复。
 
 ## 1. 今天（Home）

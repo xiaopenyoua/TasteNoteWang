@@ -19,6 +19,7 @@ related:
 ```
 design/
   product/       产品与界面规格：PRD、信息架构、页面规格、视觉语言
+  prototype/     可交互设计稿：与已实现 UI/动画逐屏对齐的单文件 HTML
   wireframes/    低保真线框
   exports/       视觉稿导出与切图
   source/        设计源文件（Figma/Sketch/PSD，gitignore）
@@ -27,8 +28,9 @@ design/
 | 段 | 回答 | 只进 | 永远不进 |
 |---|---|---|---|
 | `product/` | 做给谁、有哪些页面、每个页面怎么交互 | 语义名 `.md` | 实现细节、代码、调研正文 |
+| `prototype/` | 已实现的界面和动效实际长什么样 | 自包含 `.html`、说明 `.md` | 代码工程、构建配置、未实现功能 |
 | `wireframes/` | 布局骨架长什么样 | `.png` / `.jpg` / `.pdf` | 高保真稿、源文件 |
-| `exports/` | 定稿视觉长什么样 | `.png` / `.jpg` / `.pdf` / `.svg` | `res/` 字节副本、未引用批次图 |
+| `exports/` | 定稿视觉长什么样 | 原型导出的 `phone-*.png` 及后续切图 | `res/` 字节副本、未引用批次图 |
 | `source/` | 稿子的可编辑源 | Figma / Sketch / PSD | 任何需要入库的内容 |
 
 ## 命名
@@ -44,6 +46,8 @@ design/
 2. [`product/information-architecture.md`](product/information-architecture.md) —— 有哪些页面、怎么走。
 3. [`product/screen-specs.md`](product/screen-specs.md) —— 每屏的元素、状态、文案。
 4. [`product/visual-language.md`](product/visual-language.md) —— 颜色、字阶、形状、间距。
+5. [`prototype/ui.html`](prototype/ui.html) —— 已实现界面与动效的可交互设计稿。
+6. [`product/implemented-ui-spec.md`](product/implemented-ui-spec.md) —— 设计稿与代码的逐屏对照。
 
 ## 与开发区的边界
 

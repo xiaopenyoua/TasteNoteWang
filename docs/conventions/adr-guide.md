@@ -78,3 +78,4 @@ superseded-by: []
 | 0007 | 仓库顶层按设计区 / 开发区 / 交付区 / 本地私有区四分 | superseded by 0008 |
 | 0008 | 目录契约：三内容目录 + 单一归属判据 + 可执行自检 | accepted（§6 由 0009 修订） |
 | 0009 | 取消 dist 交付暂存区，APK 留在 android/app/build | accepted |
+| 0010 | 增加 design/prototype 交互原型目录，以已实现代码为唯一基准 | accepted |

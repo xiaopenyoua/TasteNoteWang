@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>味记・王 · 已实现 UI 设计稿</title>
+<style>
+/* ============================================================
+   味记・王 · 已实现 UI 设计稿
+   基准：android/app/src/main/java/com/weiji/wang 下的 Compose 代码
+   尺寸单位 = dp/sp（1:1）；手机画布 411×914（Pixel 7，density 420），平板 900×1280
+   ============================================================ */
+:root{
+  --bg:#F2F2F7; --surface:#FFFFFF; --surface-96:rgba(255,255,255,.96);
+  --variant:#E5E5EA; --on:#1C1C1E; --on-var:#6C6C70;
+  --outline:#C7C7CC; --outline-var:#E5E5EA;
+  --primary:#FF9500; --tertiary:#34C759; --error:#FF3B30;
+  --nav-selected:#F2F2F7; --scrim:rgba(0,0,0,.32);
+  --dy:#161823; --xhs:#FF2442; --bili:#00A1D6; --other:#8E8E93;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Microsoft YaHei",Roboto,sans-serif;
+}
+[data-theme="dark"]{
+  --bg:#000000; --surface:#1C1C1E; --surface-96:rgba(28,28,30,.96);
+  --variant:#2C2C2E; --on:#FFFFFF; --on-var:#EBEBF5;
+  --outline:#38383A; --outline-var:#2C2C2E;
+  --primary:#FF9F0A; --tertiary:#30D158; --error:#FF453A;
+  --nav-selected:#2C2C2E; --scrim:rgba(0,0,0,.6);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:var(--font);background:#0d0d0f;color:#eee;overflow:auto}
+button{font-family:inherit;border:0;background:none;color:inherit;cursor:pointer}
+svg{display:block}
+.ic{width:22px;height:22px;fill:currentColor;flex:none}
+
+/* ── 工具条（截图时 chrome=0 隐藏） ── */
+#toolbar{display:none;position:fixed;inset:0 0 auto 0;height:56px;z-index:50;
+  background:#151517;border-bottom:1px solid #2a2a2e;align-items:center;gap:12px;padding:0 18px}
+body.chrome #toolbar{display:flex}
+#toolbar .brand{font-size:14px;font-weight:600;letter-spacing:.2px;color:#f4f4f5;margin-right:auto}
+#toolbar label{font-size:12px;color:#a1a1aa;display:flex;align-items:center;gap:6px}
+#toolbar select{background:#26262b;color:#f4f4f5;border:1px solid #3a3a40;border-radius:7px;
+  padding:5px 8px;font-size:12px;font-family:inherit;outline:none}
+#toolbar button{background:#26262b;color:#f4f4f5;border:1px solid #3a3a40;border-radius:7px;
+  padding:6px 10px;font-size:12px}
+body.chrome #stage{padding-top:80px}
+
+/* ── 设备画布 ── */
+#stage{min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:24px}
+.device{background:var(--bg);color:var(--on);display:flex;flex-direction:column;overflow:hidden;position:relative;
+  box-sizing:content-box;border:8px solid #0a0a0b;border-radius:44px;
+  box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 0 1px #2a2a2e}
+.device.phone{width:411px;height:914px}
+.device.tablet{width:900px;height:1280px;border-width:12px;border-radius:40px}
+.device.immersive{background:#000}
+.statusbar{height:24px;flex:0 0 24px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;background:var(--bg);color:var(--on);font-size:12px;font-weight:600;letter-spacing:.2px}
+.device.immersive .statusbar{background:#000;color:#fff}
+.statusbar .right{display:flex;align-items:center;gap:5px}
+.statusbar svg{width:14px;height:12px;fill:currentColor}
+.app{flex:1;min-height:0;display:flex;flex-direction:column;position:relative;background:var(--bg)}
+.device.tablet .app{flex-direction:row}
+.content{flex:1;min-width:0;min-height:0;position:relative;overflow:hidden}
+.gesture{height:24px;flex:0 0 24px;display:flex;align-items:center;justify-content:center;
+  background:var(--surface-96)}
+.device.tablet .gesture,.device.immersive .gesture{background:var(--bg)}
+.device.immersive .gesture{background:#000}
+.gesture span{width:108px;height:4px;border-radius:2px;background:var(--on);opacity:.28}
+
+/* ── 页面切换：Navigation 2.7.7 默认 700ms 淡入淡出 ── */
+.screen-view{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;background:var(--bg);
+  opacity:0;pointer-events:none;transition:opacity 700ms cubic-bezier(.4,0,.2,1);
+  scrollbar-width:none}
+.screen-view::-webkit-scrollbar{display:none}
+.screen-view.active{opacity:1;pointer-events:auto}
+
+/* ── 字阶（Type.kt） ── */
+.t-display{font-size:34px;line-height:40px;font-weight:700;letter-spacing:-.4px}
+.t-h1{font-size:28px;line-height:34px;font-weight:700;letter-spacing:-.2px}
+.t-h2{font-size:22px;line-height:28px;font-weight:600}
+.t-title{font-size:20px;line-height:26px;font-weight:600}
+.t-title-m{font-size:17px;line-height:22px;font-weight:600}
+.t-body{font-size:17px;line-height:26px;font-weight:400}
+.t-body-m{font-size:15px;line-height:22px;font-weight:400}
+.t-body-s{font-size:13px;line-height:18px;font-weight:400}
+.t-label{font-size:15px;line-height:20px;font-weight:600}
+.t-label-m{font-size:13px;line-height:18px;font-weight:500}
+.t-label-s{font-size:11px;line-height:14px;font-weight:500}
+.t-cook{font-size:26px;line-height:38px;font-weight:500;letter-spacing:-.12px}
+.sub{color:var(--on-var)}
+.hint{color:var(--tertiary)}
+.err{color:var(--error)}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ── 通用组件（Common.kt） ── */
+.page-header{padding:12px 16px}
+.page-header .h-row{display:flex;align-items:center;gap:8px}
+.page-header h1{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.page-header .sub{margin-top:2px}
+.section-header{display:flex;align-items:center;padding:8px 16px}
+.section-header h2{flex:1}
+.link{color:var(--primary);border-radius:8px;padding:4px 8px;font-size:15px;line-height:22px}
+.btn{width:100%;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+  font-size:15px;line-height:20px;font-weight:600}
+.btn-primary{background:var(--primary);color:#000}
+.btn-primary:disabled{background:var(--variant);color:var(--on-var)}
+.btn-secondary{height:46px;border:1px solid var(--outline);border-radius:14px;padding:0 18px;
+  display:inline-flex;align-items:center;justify-content:center;font-size:15px;line-height:20px;font-weight:600;
+  color:var(--on);white-space:nowrap}
+.card{background:var(--surface);border-radius:16px}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;background:var(--variant);
+  padding:5px 10px;font-size:13px;line-height:18px;font-weight:500;color:var(--on-var)}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 8px;
+  font-size:11px;line-height:14px;font-weight:600;background:rgba(142,142,147,.10);color:var(--other)}
+.badge i{width:5px;height:5px;border-radius:50%;background:currentColor;display:block}
+.badge.dy{background:rgba(22,24,35,.10);color:var(--dy)}
+.badge.xhs{background:rgba(255,36,66,.10);color:var(--xhs)}
+.badge.bili{background:rgba(0,161,214,.10);color:var(--bili)}
+[data-theme="dark"] .badge.dy{background:rgba(255,255,255,.10);color:#fff}
+.badge.compact{padding:2px 6px}
+.search{height:38px;border-radius:19px;background:var(--variant);display:flex;align-items:center;
+  padding:0 12px;gap:8px}
+.search .ic{width:17px;height:17px;color:var(--on-var)}
+.search .ph{font-size:15px;line-height:22px;color:var(--tertiary)}
+.search .clear{margin-left:auto;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+.filters{display:flex;gap:8px;overflow:hidden;padding:2px 0}
+.filter{border-radius:999px;padding:7px 14px;font-size:13px;line-height:18px;font-weight:500;
+  background:var(--surface);color:var(--on-var);white-space:nowrap}
+.filter.on{background:var(--on);color:var(--surface);font-weight:600}
+.seg{display:flex;background:var(--variant);border-radius:9px;padding:2px}
+.seg button{flex:1;height:32px;border-radius:7px;font-size:15px;line-height:20px;font-weight:600;
+  color:var(--on-var);display:flex;align-items:center;justify-content:center}
+.seg button.on{background:var(--surface);color:var(--on)}
+.empty{height:520px;display:flex;align-items:center;justify-content:center;padding:24px}
+.empty-inner{max-width:312px;text-align:center}
+.empty-circle{width:72px;height:72px;border-radius:50%;background:var(--variant);
+  display:flex;align-items:center;justify-content:center;margin:0 auto}
+.empty-circle .ic{width:34px;height:34px;color:var(--on-var)}
+.empty h2{margin-top:20px}
+.empty p{margin-top:8px}
+.empty .btn{margin-top:24px}
+.empty .link{display:block;margin:8px auto 0}
+.cover{background:var(--variant);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cover .ic{width:28px;height:28px;color:var(--on-var)}
+.hscroll{display:flex;gap:12px;overflow-x:auto;padding:0 16px 8px;scrollbar-width:none}
+.hscroll::-webkit-scrollbar{display:none}
+
+/* ── 底部导航 / 侧栏（WeijiApp.kt） ── */
+.bottomnav{height:80px;flex:0 0 80px;display:flex;background:var(--surface-96);
+  border-top:.5px solid var(--outline-var)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  color:var(--on-var);font-size:11px;line-height:14px;font-weight:500}
+.nav-ind{width:64px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+  transition:background-color 100ms linear}
+.nav-item.on .nav-ind{background:var(--nav-selected)}
+.nav-item.on{color:var(--on)}
+.rail{width:80px;flex:0 0 80px;background:var(--surface-96);display:flex;flex-direction:column;
+  align-items:center;padding:8px 0 12px;border-right:.5px solid var(--outline-var)}
+.rail-item{width:80px;height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;color:var(--on-var);font-size:11px;line-height:14px;font-weight:500}
+.rail-ind{width:56px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+  transition:background-color 100ms linear}
+.rail-item.on .rail-ind{background:var(--nav-selected)}
+.rail-item.on{color:var(--on)}
+.rail .fab{margin-top:12px}
+.fab{width:56px;height:56px;border-radius:50%;background:var(--primary);color:#000;
+  display:flex;align-items:center;justify-content:center;box-shadow:none}
+.fab .ic{width:24px;height:24px}
+#fab{position:absolute;right:16px;bottom:96px;z-index:6}
+
+/* ── 首页 ── */
+.home-data{padding-bottom:96px}
+.suggestion-card{width:264px;flex:0 0 264px;background:var(--surface);border-radius:20px;
+  overflow:hidden;text-align:left}
+.suggestion-card .cover{height:148px;border-radius:20px 20px 0 0}
+.s-body{padding:12px}
+.s-body .title{min-height:44px}
+.s-meta{display:flex;align-items:center;gap:6px;margin-top:6px}
+.s-meta .spacer{flex:1}
+.recent-card{width:228px;flex:0 0 228px;background:var(--surface);border-radius:14px;padding:8px;
+  display:flex;align-items:center;gap:10px;text-align:left}
+.recent-card .cover{width:56px;height:56px;border-radius:10px;flex:none}
+.recent-card .r-body{min-width:0}
+.recent-card .r-body .t-body{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.quick-row{display:flex;gap:10px;padding:0 16px 16px}
+.quick{flex:1;background:var(--surface);border-radius:14px;padding:16px 0;text-align:center;
+  font-size:15px;line-height:20px;font-weight:600}
+
+/* ── 菜谱网格 ── */
+.recipes-page{padding-bottom:96px}
+.recipes-tools{padding:0 16px;display:flex;flex-direction:column;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px;padding:14px 16px 0}
+.device.tablet .grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid-card{background:var(--surface);border-radius:16px;overflow:hidden;text-align:left;position:relative}
+.grid-card .cover{aspect-ratio:1;border-radius:16px 16px 0 0}
+.fav{position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;
+  background:var(--surface);opacity:.82;display:flex;align-items:center;justify-content:center}
+.fav .ic{width:16px;height:16px;color:var(--on-var)}
+.fav.on .ic{color:var(--error)}
+.gc-body{padding:10px}
+.gc-body .title{min-height:52px}
+.gc-meta{display:flex;align-items:center;margin-top:4px;gap:4px}
+.gc-meta .spacer{flex:1}
+
+/* ── 详情 ── */
+.detail-cover{width:100%;aspect-ratio:16/9;border-radius:0}
+.detail-back{position:absolute;top:8px;left:8px;width:40px;height:40px;border-radius:50%;
+  background:var(--surface);opacity:.86;display:flex;align-items:center;justify-content:center;z-index:3}
+.detail-back .ic{width:22px;height:22px}
+.detail-body{padding:0 16px}
+.detail-title{margin-top:14px}
+.detail-sub{margin-top:4px}
+.sourcebar{display:flex;align-items:center;gap:6px;padding:6px 0;border-radius:10px;margin-top:6px}
+.sourcebar .author{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sourcebar .open{color:var(--primary);white-space:nowrap}
+.meta-row{display:flex;gap:8px;margin-top:2px}
+.detail-seg{margin-top:14px}
+.tab-pane{display:none;padding-bottom:110px}
+.tab-pane.on{display:block}
+.servings-row{display:flex;align-items:center;margin-top:8px}
+.servings-row .label{flex:1}
+.stepper{display:flex;align-items:center;border-radius:999px;background:var(--variant)}
+.stepper button{width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;line-height:26px;font-weight:600}
+.stepper .value{padding:0 6px;font-size:17px;line-height:22px;font-weight:600}
+.servings-hint{margin-top:4px}
+.ing-list{margin-top:4px}
+.ing-row{display:flex;align-items:center;padding:12px 4px}
+.ing-row .name{flex:1}
+.ing-sep{height:.5px;background:var(--outline-var);margin-left:4px}
+.group-label{font-size:15px;line-height:20px;font-weight:600;color:var(--on-var);
+  padding:8px 4px 4px}
+.detail-cta{padding:16px 0}
+.step-card{background:var(--surface);border-radius:16px;padding:14px;margin:6px 0}
+.step-head{display:flex;align-items:center;gap:10px}
+.step-no{width:26px;height:26px;border-radius:50%;background:var(--primary);color:#000;
+  display:flex;align-items:center;justify-content:center;font-size:13px;line-height:18px;font-weight:700}
+.step-label{font-size:15px;line-height:20px;font-weight:600;color:var(--on-var)}
+.step-head .chip{margin-left:auto}
+.step-text{margin-top:8px}
+.step-img{margin-top:10px;width:100%;aspect-ratio:16/10;border-radius:12px}
+.video-label{margin:6px 0 8px}
+.video-card{height:220px;border-radius:14px;background:#000;position:relative;display:flex;
+  align-items:center;justify-content:center;overflow:hidden}
+.video-card .play{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.14);
+  display:flex;align-items:center;justify-content:center}
+.video-card .play .ic{width:28px;height:28px;color:#fff;margin-left:3px}
+.video-card .ctrl{position:absolute;left:0;right:0;bottom:0;height:40px;background:linear-gradient(transparent,rgba(0,0,0,.55));
+  display:flex;align-items:center;gap:8px;padding:0 10px;color:#fff;font-size:11px}
+.video-card .bar{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.3)}
+.video-card .bar i{display:block;width:38%;height:3px;border-radius:2px;background:var(--primary)}
+.original-body{margin-top:12px;white-space:pre-wrap}
+.original-note{margin-top:24px}
+.log-card{background:var(--surface);border-radius:16px;padding:14px;margin:6px 0}
+.log-head{display:flex;align-items:center;gap:8px}
+.log-head .date{font-size:15px;line-height:20px;font-weight:600}
+.log-head .stars{margin-left:auto;display:flex;gap:1px}
+.log-head .stars .ic{width:13px;height:13px;color:var(--primary)}
+.log-head .stars .ic.off{color:var(--outline-var)}
+.log-notes{margin-top:6px}
+.detail-actions{position:absolute;left:0;right:0;bottom:0;height:70px;background:var(--surface-96);
+  display:flex;align-items:center;gap:4px;padding:10px 16px;z-index:5}
+.detail-actions .icon-btn{width:48px;height:48px;display:flex;align-items:center;justify-content:center;
+  color:var(--on-var)}
+.detail-actions .icon-btn.on{color:var(--error)}
+.detail-actions .start{width:160px;margin-left:auto}
+.detail-actions .start .btn{height:50px}
+
+/* ── 烹饪模式 ── */
+.cook{position:absolute;inset:0;background:#000;color:#fff;display:flex;flex-direction:column;overflow:hidden;
+  /* CookMode 在 Scaffold 已给状态栏/导航栏 inset 的基础上又调用了 statusBarsPadding + navigationBarsPadding */
+  padding-top:24px;padding-bottom:24px}
+.cook-top{height:56px;flex:0 0 56px;display:flex;align-items:center;gap:8px;padding:0 12px;
+  color:rgba(255,255,255,.55)}
+.cook-top .close{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  color:#fff}
+.cook-top .title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:13px;line-height:18px;font-weight:500}
+.cook-top .count{font-size:15px;line-height:20px;font-weight:600}
+.cook-pill{border-radius:999px;background:rgba(255,255,255,.10);color:#fff;padding:7px 12px;
+  font-size:13px;line-height:18px;font-weight:500}
+.pager{flex:1;min-height:0;overflow:hidden;touch-action:pan-y}
+.pages{display:flex;height:100%;transition:transform 350ms cubic-bezier(.2,0,0,1)}
+.cook-page{flex:0 0 100%;min-width:0;overflow-y:auto;padding:12px 24px 24px;scrollbar-width:none}
+.cook-page::-webkit-scrollbar{display:none}
+.cook-step-label{color:var(--primary);font-size:15px;line-height:20px;font-weight:600}
+.cook-text{margin-top:14px;color:#fff}
+.cook-duration{display:inline-block;margin-top:18px;border-radius:12px;background:rgba(255,255,255,.08);
+  color:var(--primary);padding:10px 14px;font-size:15px;line-height:20px;font-weight:600}
+.cook-img{margin-top:18px;width:100%;height:240px;border-radius:16px;background:var(--variant);
+  display:flex;align-items:center;justify-content:center}
+.cook-img .ic{width:34px;height:34px;color:var(--on-var)}
+.timers{display:flex;gap:8px;align-items:center;padding:6px 16px;min-height:52px;flex:0 0 52px}
+.timer-chip{border-radius:12px;background:rgba(255,255,255,.08);padding:8px 6px 8px 12px;
+  display:flex;align-items:center;gap:4px;color:rgba(255,255,255,.6);font-size:15px;line-height:20px;font-weight:600}
+.timer-chip.run{background:rgba(255,159,10,.20);color:var(--primary)}
+.timer-chip .x{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.5)}
+.timer-chip .x .ic{width:12px;height:12px}
+.timers .add{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.10);color:#fff;
+  display:flex;align-items:center;justify-content:center;margin-left:auto}
+.timers .add .ic{width:18px;height:18px}
+.cook-nav{display:flex;gap:12px;padding:10px 16px 14px;flex:0 0 auto}
+.cook-btn{height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;
+  font-size:17px;line-height:22px;font-weight:600;color:#fff;background:rgba(255,255,255,.10)}
+.cook-btn.prev{flex:1}
+.cook-btn.next{flex:1.4;background:var(--primary);color:#000}
+.cook-btn:disabled{background:rgba(255,255,255,.05);color:rgba(255,255,255,.3)}
+
+/* ── 收录 ── */
+.capture-page{padding-bottom:40px}
+.capture-body{padding:0 16px}
+.capture-parsed{display:flex;align-items:center;gap:8px;margin-top:10px;min-width:0}
+.textarea{width:100%;min-height:150px;border:1px solid var(--outline);border-radius:16px;
+  padding:16px;background:transparent;color:var(--on);font-family:inherit;font-size:15px;line-height:22px;
+  resize:none;outline:none}
+.textarea::placeholder{color:var(--tertiary)}
+.capture-actions{display:flex;gap:10px;margin-top:10px}
+.capture-actions .btn{flex:1}
+.status-card{background:var(--surface);border-radius:16px;padding:16px;margin-top:16px}
+.status-card .st-title{font-size:17px;line-height:22px;font-weight:600}
+.status-card .st-body{margin-top:4px}
+.status-card .st-head{display:flex;gap:10px;align-items:flex-start}
+.status-card .st-head .ic{width:20px;height:20px;color:var(--tertiary);margin-top:1px}
+.progress{height:4px;border-radius:2px;background:var(--variant);margin-top:12px;overflow:hidden}
+.progress i{display:block;height:4px;border-radius:2px;background:var(--primary);width:46%;
+  transition:width 300ms cubic-bezier(.4,0,.2,1)}
+.status-actions{display:flex;gap:10px;margin-top:10px;align-items:stretch}
+.status-actions .btn{width:auto;flex:1;min-width:0}
+.status-actions .btn-secondary{flex:1;min-width:0}
+.draft{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:14px;
+  padding:12px;margin:4px 16px}
+.draft .d-body{flex:1;min-width:0}
+.draft .d-body .line{font-size:15px;line-height:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.draft .ic.refresh{width:24px;height:24px;color:var(--primary)}
+.draft .ic.refresh.dim{color:var(--on-var)}
+
+/* ── 采购 ── */
+.shopping-page{padding-bottom:96px}
+.add-circle{width:36px;height:36px;border-radius:50%;background:var(--surface);
+  display:flex;align-items:center;justify-content:center}
+.add-circle .ic{width:22px;height:22px}
+.shop-row{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:12px;
+  padding:10px 12px;margin:2px 16px}
+.check{width:24px;height:24px;border-radius:50%;background:var(--variant);flex:none;
+  display:flex;align-items:center;justify-content:center}
+.check.on{background:var(--tertiary)}
+.check .ic{width:15px;height:15px;color:#fff;display:none}
+.check.on .ic{display:block}
+.shop-body{flex:1;min-width:0}
+.shop-row.checked .name{color:var(--tertiary);text-decoration:line-through}
+.shop-row .del{width:22px;height:22px;color:var(--tertiary)}
+.shop-actions{display:flex;gap:10px;padding:16px 16px 0}
+.shop-actions .btn-secondary{flex:1}
+
+/* ── 设置 / 编辑 ── */
+.settings-page,.edit-page{padding-bottom:96px}
+.group{margin:0 16px;background:var(--surface);border-radius:16px;overflow:hidden}
+.row{display:flex;align-items:center;padding:14px 16px;gap:12px}
+.row .r-title{flex:1}
+.row .r-value{font-size:15px;line-height:22px;color:var(--on-var)}
+.row.danger .r-title{color:var(--error)}
+.hair{height:.5px;background:var(--outline-var);margin-left:16px}
+.switch{width:52px;height:32px;border-radius:16px;background:var(--variant);position:relative;
+  transition:background-color 100ms linear;flex:none}
+.switch.on{background:var(--primary)}
+.switch i{position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#fff;
+  transition:transform 100ms cubic-bezier(.4,0,.2,1)}
+.switch.on i{transform:translateX(20px)}
+.group-pad{padding:12px}
+.group-pad .seg{margin-top:8px}
+.about{padding:16px;display:flex;flex-direction:column;gap:8px}
+.edit-body{padding:0 16px;display:flex;flex-direction:column;gap:10px}
+.field{position:relative;border:1px solid var(--outline);border-radius:14px;background:transparent}
+.field label{position:absolute;top:-7px;left:12px;padding:0 4px;background:var(--bg);
+  font-size:12px;line-height:14px;color:var(--on-var)}
+.field input,.field textarea{width:100%;border:0;background:transparent;color:var(--on);
+  font-family:inherit;font-size:15px;line-height:22px;padding:16px;outline:none;border-radius:14px}
+.field textarea{resize:none;min-height:150px}
+.field-row{display:flex;gap:10px}
+.field-row .field{flex:1}
+.block-label{font-size:17px;line-height:22px;font-weight:600;margin-top:4px}
+.block-hint{font-size:11px;line-height:14px;color:var(--tertiary);margin-top:-4px}
+.edit-save{padding:8px 0 16px}
+
+/* ── 登录 ── */
+.login-page{display:flex;flex-direction:column;height:100%}
+.webview{flex:1;min-height:260px;background:var(--surface);margin:0 16px;border-radius:12px;
+  border:1px solid var(--outline-var);display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:8px;color:var(--on-var)}
+.webview .wv-title{font-size:15px;line-height:22px;font-weight:600}
+.webview .wv-sub{font-size:13px;line-height:18px}
+.login-foot{padding:16px;display:flex;flex-direction:column;gap:10px}
+.login-buttons{display:flex;gap:10px}
+.login-buttons .btn{flex:1}
+.login-buttons .btn-secondary{height:50px}
+
+/* ── Dialog（Compose AlertDialog） ── */
+.dialog-wrap{position:absolute;inset:0;background:var(--scrim);display:none;align-items:center;
+  justify-content:center;z-index:30;padding:24px}
+.dialog-wrap.on{display:flex}
+.dialog{width:100%;max-width:312px;background:var(--surface);border-radius:28px;padding:24px;
+  box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.dialog h3{font-size:20px;line-height:26px;font-weight:600}
+.dialog .d-text{font-size:15px;line-height:22px;color:var(--on-var);margin-top:12px}
+.dialog .d-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.dialog .d-action{font-size:15px;line-height:20px;font-weight:600;color:var(--primary);padding:8px 10px;border-radius:8px}
+.dialog .d-action.danger{color:var(--error)}
+.stars{display:flex;gap:2px;margin-top:12px}
+.stars .ic{width:30px;height:30px;color:var(--outline-var);padding:2px}
+.stars .ic.on{color:var(--primary)}
+.dialog .d-row{display:flex;align-items:center;margin-top:10px;gap:8px}
+.dialog .d-row .grow{flex:1}
+.dialog .d-step{font-size:20px;line-height:26px;font-weight:600;padding:0 12px}
+.dialog .notes{width:100%;margin-top:10px;border:1px solid var(--outline);border-radius:6px;
+  padding:12px;background:transparent;color:var(--on);font-family:inherit;font-size:15px;min-height:64px;resize:none}
+.dialog-list{margin-top:8px}
+.dialog-list button{display:block;width:100%;text-align:left;font-size:17px;line-height:26px;padding:14px 0}
+.dialog-list .ing{display:flex;padding:6px 0;font-size:15px;line-height:22px}
+.dialog-list .ing span:last-child{color:var(--on-var)}
+
+/* ── Ripple（Material 3：约 225ms 扩散 + 150ms 淡出） ── */
+.tap{position:relative;overflow:hidden}
+.ripple{position:absolute;border-radius:50%;background:currentColor;opacity:.18;transform:scale(0);
+  animation:ripple 375ms ease-out;pointer-events:none}
+@keyframes ripple{to{transform:scale(1);opacity:0}}
+
+/* 手机/平板适配 */
+.device.tablet .page-header{padding-left:16px;padding-right:16px}
+.device.tablet .suggestion-card{flex-basis:264px}
+</style>
+</head>
+<body class="chrome">
+
+<div id="toolbar">
+  <div class="brand">味记・王 · 已实现 UI 设计稿</div>
+  <label>页面 <select id="selScreen">
+    <option value="home">今天</option><option value="recipes">菜谱</option>
+    <option value="recipe">详情</option><option value="cook">烹饪</option>
+    <option value="capture">收录</option><option value="shopping">采购</option>
+    <option value="settings">我的</option><option value="edit">编辑</option>
+    <option value="login">登录</option>
+  </select></label>
+  <label>状态 <select id="selState"></select></label>
+  <label>设备 <select id="selDevice">
+    <option value="phone">手机 411×914</option><option value="tablet">平板 900×1280</option>
+  </select></label>
+  <button id="btnTheme">浅色 / 深色</button>
+</div>
+
+<main id="stage">
+  <div id="device" class="device phone">
+
+    <!-- 系统状态栏（OS chrome，非应用 UI） -->
+    <div class="statusbar">
+      <span>2:01</span>
+      <span class="right">
+        <svg viewBox="0 0 24 24"><path d="M12 21 1 8.5a16 16 0 0 1 22 0Z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M3 18h3V8H3v10Zm5 0h3V5H8v13Zm5 0h3V10h-3v8Zm5 0h3V3h-3v15Z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M4 7h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm18 3v4h1v-4h-1Z"/></svg>
+      </span>
+    </div>
+
+    <div class="app">
+      <!-- 平板 NavigationRail -->
+      <nav id="rail" class="rail" style="display:none">
+        <button class="rail-item on tap" data-go="home"><span class="rail-ind"><svg class="ic"><use href="#i-home"/></svg></span><span>今天</span></button>
+        <button class="rail-item tap" data-go="recipes"><span class="rail-ind"><svg class="ic"><use href="#i-list"/></svg></span><span>菜谱</span></button>
+        <button class="rail-item tap" data-go="shopping"><span class="rail-ind"><svg class="ic"><use href="#i-cart"/></svg></span><span>采购</span></button>
+        <button class="rail-item tap" data-go="settings"><span class="rail-ind"><svg class="ic"><use href="#i-person"/></svg></span><span>我的</span></button>
+        <button class="fab tap" data-go="capture" aria-label="收录"><svg class="ic"><use href="#i-add"/></svg></button>
+      </nav>
+
+      <div class="content">
+
+        <!-- ═══════════ 今天 ═══════════ -->
+        <section class="screen-view active" data-screen="home">
+          <div class="page-header">
+            <div class="h-row"><h1 class="t-display">今天</h1></div>
+            <p class="t-body-m sub">11月2日 周一 · 午饭吃点什么？</p>
+          </div>
+
+          <div id="homeEmpty" class="empty">
+            <div class="empty-inner">
+              <div class="empty-circle"><svg class="ic"><use href="#i-bowl"/></svg></div>
+              <h2 class="t-h2">今晚吃什么？</h2>
+              <p class="t-body-m sub">把抖音、小红书或 B 站刷到的教程收进来，味记会帮你排成能照着做的步骤。</p>
+              <button class="btn btn-primary tap" data-go="capture">收录第一条</button>
+              <button class="link tap" data-go="edit">手动创建</button>
+            </div>
+          </div>
+
+          <div id="homeData" class="home-data">
+            <div class="section-header"><h2 class="t-title">今晚吃什么</h2><button class="link tap" data-go="recipes">全部</button></div>
+            <div class="hscroll">
+              <button class="suggestion-card tap" data-go="recipe">
+                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <div class="s-body">
+                  <div class="title t-title-m clamp2">有幸在亲戚家吃过一回，被惊艳到了！！</div>
+                  <div class="s-meta"><span class="badge xhs compact"><i></i>小红书</span><span class="t-label-m sub">2 人份</span><span class="spacer"></span><span class="t-label-s hint">收藏 8 天未做</span></div>
+                </div>
+              </button>
+              <button class="suggestion-card tap" data-go="recipe">
+                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <div class="s-body">
+                  <div class="title t-title-m clamp2">记住这些万能炒菜公式，做菜怎么都不会难吃！</div>
+                  <div class="s-meta"><span class="badge bili compact"><i></i>B站</span><span class="t-label-m sub">2 人份</span><span class="spacer"></span><span class="t-label-s hint">收藏 10 天未做</span></div>
+                </div>
+              </button>
+              <button class="suggestion-card tap" data-go="recipe">
+                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <div class="s-body">
+                  <div class="title t-title-m clamp2">港式牛腩煲 | 暖乎乎巨好吃</div>
+                  <div class="s-meta"><span class="badge xhs compact"><i></i>小红书</span><span class="t-label-m sub">3 人份</span><span class="spacer"></span><span class="t-label-s hint">3 天前</span></div>
+                </div>
+              </button>
+            </div>
+
+            <div class="section-header"><h2 class="t-title">最近做过</h2></div>
+            <div class="hscroll">
+              <button class="recent-card tap" data-go="recipe">
+                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <div class="r-body"><div class="t-body">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</div><div class="t-label-s sub">3 小时前</div></div>
+              </button>
+              <button class="recent-card tap" data-go="recipe">
+                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <div class="r-body"><div class="t-body">港式牛腩煲 | 暖乎乎巨好吃</div><div class="t-label-s sub">3 天前</div></div>
+              </button>
+            </div>
+
+            <div class="section-header"><h2 class="t-title">快速开始</h2></div>
+            <div class="quick-row">
+              <button class="quick tap" data-go="capture">收录链接</button>
+              <button class="quick tap" data-go="edit">手动创建</button>
+              <button class="quick tap" data-go="shopping">采购清单</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 菜谱 ═══════════ -->
+        <section class="screen-view" data-screen="recipes">
+          <div class="recipes-page">
+            <div class="page-header"><h1 class="t-display">菜谱</h1><p class="t-body-m sub">4 道</p></div>
+            <div class="recipes-tools">
+              <div class="search tap"><svg class="ic"><use href="#i-search"/></svg><span class="ph">搜菜名、食材、作者</span></div>
+              <div class="filters">
+                <button class="filter on tap">全部</button><button class="filter tap">收藏</button>
+                <button class="filter tap">没做过</button><button class="filter tap">30 分钟内</button>
+              </div>
+            </div>
+            <div id="recipesGrid" class="grid">
+              <button class="grid-card tap" data-go="recipe">
+                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <span class="fav on"><svg class="ic"><use href="#i-heart"/></svg></span>
+                <div class="gc-body"><div class="title t-body clamp2">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</div>
+                  <div class="gc-meta"><span class="badge dy compact"><i></i>抖音</span><span class="spacer"></span><span class="t-label-s sub">2 人</span></div></div>
+              </button>
+              <button class="grid-card tap" data-go="recipe">
+                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <span class="fav on"><svg class="ic"><use href="#i-heart"/></svg></span>
+                <div class="gc-body"><div class="title t-body clamp2">有幸在亲戚家吃过一回，被惊艳到了！！</div>
+                  <div class="gc-meta"><span class="badge xhs compact"><i></i>小红书</span><span class="spacer"></span><span class="t-label-s sub">2 人</span></div></div>
+              </button>
+              <button class="grid-card tap" data-go="recipe">
+                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <span class="fav"><svg class="ic"><use href="#i-heart-border"/></svg></span>
+                <div class="gc-body"><div class="title t-body clamp2">港式牛腩煲 | 暖乎乎巨好吃</div>
+                  <div class="gc-meta"><span class="badge xhs compact"><i></i>小红书</span><span class="spacer"></span><span class="t-label-s sub">3 人</span></div></div>
+              </button>
+              <button class="grid-card tap" data-go="recipe">
+                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <span class="fav"><svg class="ic"><use href="#i-heart-border"/></svg></span>
+                <div class="gc-body"><div class="title t-body clamp2">记住这些万能炒菜公式，做菜怎么都不会难吃！</div>
+                  <div class="gc-meta"><span class="badge bili compact"><i></i>B站</span><span class="spacer"></span><span class="t-label-s sub">2 人</span></div></div>
+              </button>
+            </div>
+            <div id="recipesEmpty" class="empty" style="display:none;height:420px">
+              <div class="empty-inner">
+                <div class="empty-circle"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <h2 class="t-h2">还没有菜谱</h2>
+                <p class="t-body-m sub">从抖音、小红书或 B 站分享一条链接进来。</p>
+                <button class="btn btn-primary tap" data-go="capture">去收录</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 详情 ═══════════ -->
+        <section class="screen-view" data-screen="recipe">
+          <div class="detail-cover cover" style="position:relative">
+            <svg class="ic"><use href="#i-bowl"/></svg>
+            <button class="detail-back tap" data-go="recipes" aria-label="返回"><svg class="ic"><use href="#i-back"/></svg></button>
+          </div>
+          <div class="detail-body">
+            <h1 class="t-h1 detail-title">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</h1>
+            <p class="t-body-m sub detail-sub">视频教程 · 6 项食材</p>
+            <div class="sourcebar">
+              <span class="badge dy"><i></i>抖音</span>
+              <span class="t-body-s sub author">@西关焖烧男</span>
+              <span class="t-body-s open">原链接 ↗</span>
+            </div>
+            <div class="meta-row">
+              <span class="chip">2 人份</span><span class="chip">约 30 分钟</span><span class="chip">已收藏</span>
+            </div>
+            <div class="seg detail-seg" id="detailSeg">
+              <button class="on" data-tab="ingredients">食材</button>
+              <button data-tab="steps">步骤</button>
+              <button data-tab="original">原文</button>
+              <button data-tab="logs">记录</button>
+            </div>
+
+            <div class="tab-pane on" data-pane="ingredients">
+              <div class="servings-row"><span class="t-title-m label">份量</span>
+                <div class="stepper"><button>−</button><span class="value">2 人</span><button>+</button></div>
+              </div>
+              <p class="t-label-s hint servings-hint">按 2 人份记录，已换算为 2 人份</p>
+              <div class="ing-list">
+                <div class="ing-row"><span class="t-body name">牛里脊或牛排肉</span><span class="t-body">400克</span></div><div class="ing-sep"></div>
+                <div class="ing-row"><span class="t-body name">土豆</span><span class="t-body">300克</span></div><div class="ing-sep"></div>
+                <div class="ing-row"><span class="t-body name">大蒜</span><span class="t-body">4瓣</span></div><div class="ing-sep"></div>
+                <div class="ing-row"><span class="t-body name">小葱</span><span class="t-body">15克</span></div><div class="ing-sep"></div>
+                <div class="ing-row"><span class="t-body name">白芝麻</span><span class="t-body">5克</span></div><div class="ing-sep"></div>
+                <div class="ing-row"><span class="t-body name">孜然粉</span><span class="t-body">5克</span></div>
+              </div>
+              <div class="detail-cta"><button class="btn btn-primary tap">全部加入采购清单</button></div>
+            </div>
+
+            <div class="tab-pane" data-pane="steps">
+              <div class="t-title-m video-label">原视频</div>
+              <div class="video-card">
+                <div class="play"><svg class="ic"><use href="#i-play"/></svg></div>
+                <div class="ctrl"><svg class="ic" style="width:16px;height:16px"><use href="#i-play"/></svg><span>0:00 / 2:29</span><div class="bar"><i></i></div></div>
+              </div>
+              <div class="step-card">
+                <div class="step-head"><span class="step-no">1</span><span class="step-label">第 1 步</span><span class="chip">10 分 0 秒</span></div>
+                <p class="t-body step-text">牛里脊切薄片，加生抽、料酒、淀粉抓匀，腌 10 分钟。</p>
+              </div>
+              <div class="step-card">
+                <div class="step-head"><span class="step-no">2</span><span class="step-label">第 2 步</span><span class="chip">5 分 0 秒</span></div>
+                <p class="t-body step-text">土豆切条，清水冲去表面淀粉，沥干。</p>
+              </div>
+              <div class="step-card">
+                <div class="step-head"><span class="step-no">3</span><span class="step-label">第 3 步</span><span class="chip">8 分 0 秒</span><span class="chip"><svg class="ic" style="width:13px;height:13px"><use href="#i-play"/></svg>0:30</span></div>
+                <p class="t-body step-text">热锅多油，土豆条煎到金黄，盛出。</p>
+              </div>
+              <div class="step-card">
+                <div class="step-head"><span class="step-no">4</span><span class="step-label">第 4 步</span><span class="chip">3 分 0 秒</span><span class="chip"><svg class="ic" style="width:13px;height:13px"><use href="#i-play"/></svg>1:15</span></div>
+                <p class="t-body step-text">下牛肉大火滑炒变色，倒回土豆，撒孜然粉、白芝麻、小葱，翻匀出锅。</p>
+              </div>
+              <div class="detail-cta"><button class="btn btn-primary tap" data-go="cook">开始做</button></div>
+            </div>
+
+            <div class="tab-pane" data-pane="original">
+              <p class="t-body original-body">比烧烤还好吃！直接香迷糊的孜然土豆牛肉
+食材：牛里脊 400克、土豆 300克、大蒜 4瓣、小葱 15克、白芝麻 5克、孜然粉 5克</p>
+              <p class="t-body-s hint original-note">自动解析可能有遗漏。以原文和原视频为准。</p>
+            </div>
+
+            <div class="tab-pane" data-pane="logs">
+              <div class="log-card">
+                <div class="log-head"><span class="date">11月2日 11:07</span><span class="t-label-m sub">2 人份</span>
+                  <span class="stars"><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg></span></div>
+                <p class="t-body-m log-notes">孜然多放了一点，土豆先煎更脆。</p>
+              </div>
+              <div class="log-card">
+                <div class="log-head"><span class="date">10月23日 14:07</span><span class="t-label-m sub">2 人份</span>
+                  <span class="stars"><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg><svg class="ic off"><use href="#i-star"/></svg></span></div>
+                <p class="t-body-m log-notes">第一次做，盐少了。</p>
+              </div>
+            </div>
+          </div>
+          <div class="detail-actions">
+            <button class="icon-btn on tap" aria-label="取消收藏"><svg class="ic"><use href="#i-heart"/></svg></button>
+            <button class="icon-btn tap" data-go="edit" aria-label="编辑"><svg class="ic"><use href="#i-edit"/></svg></button>
+            <button class="icon-btn tap" data-dialog="delete" aria-label="删除"><svg class="ic"><use href="#i-delete"/></svg></button>
+            <div class="start"><button class="btn btn-primary tap" data-go="cook">开始做</button></div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 烹饪 ═══════════ -->
+        <section class="screen-view" data-screen="cook">
+          <div class="cook">
+            <div class="cook-top">
+              <button class="close tap" data-dialog="exit" aria-label="退出"><svg class="ic"><use href="#i-close"/></svg></button>
+              <span class="title">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</span>
+              <span class="count" id="cookCount">1/4</span>
+              <button class="cook-pill tap" data-dialog="timer">计时</button>
+              <button class="cook-pill tap" data-dialog="ingredients">食材</button>
+            </div>
+            <div class="pager" id="pager">
+              <div class="pages" id="pages">
+                <div class="cook-page">
+                  <div class="cook-step-label">第 1 步</div>
+                  <p class="t-cook cook-text">牛里脊切薄片，加生抽、料酒、淀粉抓匀，腌 10 分钟。</p>
+                  <button class="cook-duration tap" data-timer="600">需要 10 分 0 秒 · 点此计时</button>
+                </div>
+                <div class="cook-page">
+                  <div class="cook-step-label">第 2 步</div>
+                  <p class="t-cook cook-text">土豆切条，清水冲去表面淀粉，沥干。</p>
+                  <button class="cook-duration tap" data-timer="300">需要 5 分 0 秒 · 点此计时</button>
+                </div>
+                <div class="cook-page">
+                  <div class="cook-step-label">第 3 步</div>
+                  <p class="t-cook cook-text">热锅多油，土豆条煎到金黄，盛出。</p>
+                  <button class="cook-duration tap" data-timer="480">需要 8 分 0 秒 · 点此计时</button>
+                </div>
+                <div class="cook-page">
+                  <div class="cook-step-label">第 4 步</div>
+                  <p class="t-cook cook-text">下牛肉大火滑炒变色，倒回土豆，撒孜然粉、白芝麻、小葱，翻匀出锅。</p>
+                  <button class="cook-duration tap" data-timer="180">需要 3 分 0 秒 · 点此计时</button>
+                </div>
+              </div>
+            </div>
+            <div class="timers" id="timers">
+              <button class="add tap" data-dialog="timer" aria-label="加计时"><svg class="ic"><use href="#i-add"/></svg></button>
+            </div>
+            <div class="cook-nav">
+              <button class="cook-btn prev tap" id="btnPrev" disabled>上一步</button>
+              <button class="cook-btn next tap" id="btnNext">下一步</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 收录 ═══════════ -->
+        <section class="screen-view" data-screen="capture">
+          <div class="capture-page">
+            <div class="page-header">
+              <div class="h-row"><h1 class="t-display">收录</h1>
+                <button class="add-circle tap" data-go="home" aria-label="关闭"><svg class="ic"><use href="#i-close"/></svg></button></div>
+              <p class="t-body-m sub">粘贴一条抖音、小红书或 B 站链接</p>
+            </div>
+            <div class="capture-body">
+              <textarea class="textarea" id="capText" placeholder="分享文案或链接"></textarea>
+              <div id="capParsed" class="capture-parsed" style="display:none">
+                <span class="badge dy"><i></i>抖音</span>
+                <span class="t-body-s sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</span>
+              </div>
+              <div class="capture-actions">
+                <button class="btn btn-primary tap" id="btnParse" disabled>解析</button>
+                <button class="btn-secondary tap" style="flex:1" data-go="edit">手动创建</button>
+              </div>
+
+              <div id="capIdle" style="display:none"></div>
+              <div id="capPreparing" class="status-card" style="display:none">
+                <div class="st-title">正在读取页面…</div><div class="st-body t-body-m sub">本地解析，不上传你的链接。</div>
+              </div>
+              <div id="capNeeds" class="status-card" style="display:none">
+                <div class="st-title">正在用内置浏览器读取抖音</div>
+                <div class="st-body t-body-m sub">抖音需要页面渲染才能拿到视频地址。首次可能需要登录，登录信息只保存在本机。</div>
+                <div class="status-actions"><button class="btn-secondary tap">去登录抖音</button><button class="btn-secondary tap">只保留链接</button></div>
+              </div>
+              <div id="capDownloading" style="display:none">
+                <div class="status-card"><div class="st-title">正在保存</div><div class="st-body t-body-m sub">正在下载视频 12.4 MB / 28.1 MB</div></div>
+                <div class="progress"><i></i></div>
+              </div>
+              <div id="capSuccess" class="status-card" style="display:none">
+                <div class="st-head"><svg class="ic"><use href="#i-check"/></svg>
+                  <div><div class="st-title">收录完成</div><div class="st-body t-body-m sub">视频、图片和文字都已保存到本机。</div></div></div>
+                <div class="status-actions"><button class="btn btn-primary tap" data-go="recipe">打开菜谱</button><button class="btn-secondary tap">再收一条</button></div>
+              </div>
+              <div id="capFailed" class="status-card" style="display:none">
+                <div class="st-title err">没有完整收录</div>
+                <div class="st-body t-body-m sub">视频需要登录抖音后重试</div>
+                <div class="status-actions"><button class="btn-secondary tap">重试</button><button class="btn btn-primary tap" data-go="login">去登录</button></div>
+              </div>
+
+              <div class="section-header" style="padding-left:0;padding-right:0"><h2 class="t-title">最近收录</h2></div>
+            </div>
+            <div class="draft"><span class="badge xhs compact"><i></i>小红书</span><div class="d-body"><div class="line t-body-m">港式牛腩煲 | 暖乎乎巨好吃</div><div class="t-label-s hint">已完成</div></div><svg class="ic refresh dim"><use href="#i-refresh"/></svg></div>
+            <div class="draft"><span class="badge dy compact"><i></i>抖音</span><div class="d-body"><div class="line t-body-m">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</div><div class="t-label-s err">视频需要登录抖音后重试</div></div><svg class="ic refresh"><use href="#i-refresh"/></svg></div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 采购 ═══════════ -->
+        <section class="screen-view" data-screen="shopping">
+          <div class="shopping-page">
+            <div class="page-header">
+              <div class="h-row"><h1 class="t-display">采购</h1><button class="add-circle tap" aria-label="添加"><svg class="ic"><use href="#i-add"/></svg></button></div>
+              <p class="t-body-m sub">还需买 4 项 · 已买 2 项</p>
+            </div>
+
+            <div id="shopData">
+              <div class="section-header"><h2 class="t-title">肉禽水产</h2></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body"><div class="t-body name">牛腩</div><div class="t-label-s sub">500克</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="section-header"><h2 class="t-title">蔬菜</h2></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body"><div class="t-body name">土豆</div><div class="t-label-s sub">300克</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="section-header"><h2 class="t-title">调料</h2></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body"><div class="t-body name">生抽</div><div class="t-label-s sub">2勺</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body"><div class="t-body name">蚝油</div><div class="t-label-s sub">1勺</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="section-header"><h2 class="t-title">已购</h2></div>
+              <div class="shop-row checked"><span class="check on"><svg class="ic"><use href="#i-check"/></svg></span><div class="shop-body"><div class="t-body name">小葱</div><div class="t-label-s sub">15克</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row checked"><span class="check on"><svg class="ic"><use href="#i-check"/></svg></span><div class="shop-body"><div class="t-body name">大蒜</div><div class="t-label-s sub">4瓣</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-actions"><button class="btn-secondary tap">清除已购</button><button class="btn-secondary tap">清空清单</button></div>
+            </div>
+
+            <div id="shopEmpty" class="empty" style="display:none;height:480px">
+              <div class="empty-inner">
+                <div class="empty-circle"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                <h2 class="t-h2">采购清单是空的</h2>
+                <p class="t-body-m sub">在菜谱详情点「全部加入采购清单」，或在右上角手动添加。</p>
+                <button class="btn btn-primary tap" data-go="recipes">去菜谱看看</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 我的 ═══════════ -->
+        <section class="screen-view" data-screen="settings">
+          <div class="settings-page">
+            <div class="page-header"><h1 class="t-display">我的</h1><p class="t-body-m sub">所有内容只保存在本机</p></div>
+
+            <div class="section-header"><h2 class="t-title">数据</h2></div>
+            <div class="group">
+              <div class="row"><span class="t-body r-title">存储空间</span><span class="r-value">暂无媒体</span></div><div class="hair"></div>
+              <div class="row"><span class="t-body r-title">导出备份</span><span class="r-value">含图片与视频</span></div><div class="hair"></div>
+              <div class="row"><span class="t-body r-title">从备份恢复</span><span class="r-value">选择 .zip</span></div>
+            </div>
+
+            <div class="section-header"><h2 class="t-title">收录</h2></div>
+            <div class="group">
+              <div class="row"><span class="t-body r-title">仅 Wi-Fi 下载媒体</span><span class="switch on"><i></i></span></div><div class="hair"></div>
+              <div class="row"><span class="t-body r-title">自动下载视频与图片</span><span class="switch on"><i></i></span></div><div class="hair"></div>
+              <div class="row"><span class="t-body r-title">抖音登录</span><span class="r-value">未登录</span></div><div class="hair"></div>
+              <div class="row"><span class="t-body r-title">小红书登录</span><span class="r-value">未登录</span></div><div class="hair"></div>
+              <div class="row"><span class="t-body r-title">B 站登录</span><span class="r-value">未登录</span></div><div class="hair"></div>
+              <div class="row danger"><span class="t-body r-title">清除全部登录信息</span></div>
+            </div>
+
+            <div class="section-header"><h2 class="t-title">体验</h2></div>
+            <div class="group"><div class="group-pad"><div class="t-body">外观</div>
+              <div class="seg" id="themeSeg"><button class="on">跟随系统</button><button>浅色</button><button>深色</button></div>
+            </div></div>
+
+            <div class="section-header"><h2 class="t-title">关于</h2></div>
+            <div class="group">
+              <div class="row"><span class="t-body r-title">版本</span><span class="r-value">0.1.0-debug</span></div>
+              <div class="about">
+                <p class="t-body-s sub">味记・王 是一个只给自己用的厨房笔记。没有账号、没有广告、没有上传。平台登录信息仅用于你主动发起的链接解析，加密保存在本机，不会进入备份。</p>
+                <p class="t-body-s err">卸载应用会删除本机数据；换机或卸载前，请先导出备份。</p>
+                <p class="t-body-s hint">请只用于个人离线查看；下载内容与账号风险由使用者承担。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 编辑 ═══════════ -->
+        <section class="screen-view" data-screen="edit">
+          <div class="edit-page">
+            <div class="page-header">
+              <div class="h-row"><h1 class="t-display">新建菜谱</h1><button class="link tap" data-go="recipe">保存</button></div>
+              <p class="t-body-m sub">自动解析的结果可以随时改</p>
+            </div>
+            <div class="edit-body">
+              <div class="field"><label>菜名</label><input value=""></div>
+              <div class="field-row">
+                <div class="field"><label>几人份</label><input value="2" inputmode="numeric"></div>
+                <div class="field"><label>时长（分钟）</label><input value="" inputmode="numeric"></div>
+              </div>
+              <div class="field"><label>来源链接（可选）</label><input value=""></div>
+              <div class="block-label">食材</div>
+              <div class="block-hint">每行一项：牛腩 500克、生抽 2勺。只有名称也可以。</div>
+              <div class="field"><textarea></textarea></div>
+              <div class="block-label">步骤</div>
+              <div class="block-hint">每行一步，按顺序。</div>
+              <div class="field"><textarea style="min-height:200px"></textarea></div>
+              <div class="block-label">备注</div>
+              <div class="field"><textarea style="min-height:72px"></textarea></div>
+              <div class="edit-save"><button class="btn btn-primary tap" data-go="recipe">保存</button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 登录 ═══════════ -->
+        <section class="screen-view" data-screen="login">
+          <div class="login-page">
+            <div class="page-header">
+              <div class="h-row"><h1 class="t-display">登录抖音</h1>
+                <button class="add-circle tap" data-go="settings" aria-label="关闭"><svg class="ic"><use href="#i-close"/></svg></button></div>
+              <p class="t-body-m sub">登录信息只保存在本机，用于解析你主动提交的链接</p>
+            </div>
+            <div class="webview">
+              <div class="wv-title">平台登录页（WebView）</div>
+              <div class="wv-sub">设计稿不嵌入第三方页面，真机为可交互 WebView</div>
+            </div>
+            <div class="login-foot">
+              <p class="t-body-s sub">在页面里完成登录，然后点下面按钮。味记不会读取你的账号或密码，只保存平台发放的 Cookie。</p>
+              <div class="login-buttons"><button class="btn btn-primary tap" data-go="settings">我已登录</button><button class="btn-secondary tap">清除</button></div>
+              <p class="t-label-s hint">提示：登录态会过期。解析突然失败时，回来重新登录一次即可。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ Dialog 层 ═══════════ -->
+        <div class="dialog-wrap" data-dialog="exit">
+          <div class="dialog"><h3>退出烹饪？</h3><p class="d-text">当前步骤会保留，下次可以接着做。</p>
+            <div class="d-actions"><button class="d-action tap">继续做</button><button class="d-action tap" data-go="recipe">退出</button></div></div>
+        </div>
+        <div class="dialog-wrap" data-dialog="ingredients">
+          <div class="dialog"><h3>食材（2 人份）</h3>
+            <div class="dialog-list">
+              <div class="ing"><span style="flex:1">牛里脊或牛排肉</span><span>400克</span></div>
+              <div class="ing"><span style="flex:1">土豆</span><span>300克</span></div>
+              <div class="ing"><span style="flex:1">大蒜</span><span>4瓣</span></div>
+              <div class="ing"><span style="flex:1">小葱</span><span>15克</span></div>
+              <div class="ing"><span style="flex:1">白芝麻</span><span>5克</span></div>
+              <div class="ing"><span style="flex:1">孜然粉</span><span>5克</span></div>
+            </div>
+            <div class="d-actions"><button class="d-action tap">知道了</button></div></div>
+        </div>
+        <div class="dialog-wrap" data-dialog="timer">
+          <div class="dialog"><h3>计时多久？</h3>
+            <div class="dialog-list">
+              <button class="tap" data-timer="60">1 分钟</button>
+              <button class="tap" data-timer="180">3 分钟</button>
+              <button class="tap" data-timer="300">5 分钟</button>
+              <button class="tap" data-timer="600">10 分钟</button>
+            </div>
+            <div class="d-actions"><button class="d-action tap">取消</button></div></div>
+        </div>
+        <div class="dialog-wrap" data-dialog="finish">
+          <div class="dialog"><h3>记录这次</h3>
+            <div class="stars"><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg><svg class="ic"><use href="#i-star"/></svg></div>
+            <div class="d-row"><span class="grow t-body">份量</span><button class="d-step tap">−</button><span>2 人</span><button class="d-step tap">+</button></div>
+            <textarea class="notes" placeholder="这次哪里不一样？"></textarea>
+            <div class="d-actions"><button class="d-action tap">跳过</button><button class="d-action tap" data-go="recipe">保存</button></div></div>
+        </div>
+        <div class="dialog-wrap" data-dialog="delete">
+          <div class="dialog"><h3>删除这道菜谱？</h3><p class="d-text">会同时删除已下载的图片和视频，无法恢复。</p>
+            <div class="d-actions"><button class="d-action tap">取消</button><button class="d-action danger tap" data-go="recipes">删除</button></div></div>
+        </div>
+
+      </div><!-- /content -->
+
+      <!-- 手机底部导航 -->
+      <nav id="bottomnav" class="bottomnav">
+        <button class="nav-item on tap" data-go="home"><span class="nav-ind"><svg class="ic"><use href="#i-home"/></svg></span><span>今天</span></button>
+        <button class="nav-item tap" data-go="recipes"><span class="nav-ind"><svg class="ic"><use href="#i-list"/></svg></span><span>菜谱</span></button>
+        <button class="nav-item tap" data-go="shopping"><span class="nav-ind"><svg class="ic"><use href="#i-cart"/></svg></span><span>采购</span></button>
+        <button class="nav-item tap" data-go="settings"><span class="nav-ind"><svg class="ic"><use href="#i-person"/></svg></span><span>我的</span></button>
+      </nav>
+
+      <!-- 手机 FAB -->
+      <button id="fab" class="fab tap" data-go="capture" aria-label="收录"><svg class="ic"><use href="#i-add"/></svg></button>
+    </div><!-- /app -->
+
+    <div class="gesture"><span></span></div>
+  </div>
+</main>
+
+<!-- 图标 sprite：Material Icons + ic_bowl.xml -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-bowl" viewBox="0 0 24 24">
+    <path d="M4 11 L20 11 A1 1 0 0 1 21 12 C21 16.5 17.5 20 12 20 C6.5 20 3 16.5 3 12 A1 1 0 0 1 4 11 Z" fill="currentColor"/>
+    <path d="M9 8.5 C10.5 7 8 6 9.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M14.5 8.5 C16 7 13.5 6 15 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></symbol>
+  <symbol id="i-add" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+  <symbol id="i-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></symbol>
+  <symbol id="i-heart-border" viewBox="0 0 24 24"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></symbol>
+</svg>
+
+<script>
+(function(){
+  "use strict";
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const device = $('#device');
+  const rail = $('#rail');
+  const nav = $('#bottomnav');
+  const fab = $('#fab');
+  const pages = $('#pages');
+  const timersEl = $('#timers');
+
+  const S = {
+    screen: 'home', theme: 'light', device: 'phone', chrome: true,
+    home: 'data', recipes: 'data', shopping: 'data', capture: 'idle',
+    tab: 'ingredients', cook: 0, dialog: null,
+    timers: []
+  };
+
+  const SCREEN_STATES = {
+    home: ['data', 'empty'],
+    recipes: ['data', 'empty'],
+    recipe: ['ingredients', 'steps', 'original', 'logs'],
+    cook: ['step1', 'step2', 'step3', 'step4', 'exit', 'ingredients', 'timer', 'finish'],
+    capture: ['idle', 'preparing', 'needsWebView', 'downloading', 'success', 'failed'],
+    shopping: ['data', 'empty'],
+    settings: ['default'],
+    edit: ['default'],
+    login: ['default']
+  };
+
+  function applyParams() {
+    const p = new URLSearchParams(location.search);
+    if (p.has('screen')) S.screen = p.get('screen');
+    if (p.has('theme')) S.theme = p.get('theme');
+    if (p.has('device')) S.device = p.get('device');
+    if (p.has('chrome')) S.chrome = p.get('chrome') !== '0';
+    if (p.has('state')) setState(p.get('state'), false);
+    if (p.has('tab')) S.tab = p.get('tab');
+    if (p.has('cook')) S.cook = Math.max(0, Math.min(3, parseInt(p.get('cook'), 10) || 0));
+    if (p.has('dialog')) S.dialog = p.get('dialog') === 'none' ? null : p.get('dialog');
+  }
+
+  function setState(v, renderNow) {
+    if (!v) return;
+    if (S.screen === 'home') S.home = v === 'empty' ? 'empty' : 'data';
+    else if (S.screen === 'recipes') S.recipes = v === 'empty' ? 'empty' : 'data';
+    else if (S.screen === 'shopping') S.shopping = v === 'empty' ? 'empty' : 'data';
+    else if (S.screen === 'capture') S.capture = v;
+    else if (S.screen === 'recipe') S.tab = v;
+    else if (S.screen === 'cook') {
+      if (/^step[1-4]$/.test(v)) S.cook = parseInt(v.slice(4), 10) - 1;
+      else S.dialog = v;
+    }
+    if (renderNow !== false) render();
+  }
+
+  function render() {
+    document.body.classList.toggle('chrome', S.chrome);
+    document.documentElement.dataset.theme = S.theme;
+    device.className = 'device ' + S.device + (S.screen === 'cook' ? ' immersive' : '');
+
+    rail.style.display = S.device === 'tablet' && S.screen !== 'cook' ? 'flex' : 'none';
+    nav.style.display = S.device === 'phone' && S.screen !== 'cook' ? 'flex' : 'none';
+    fab.style.display = S.device === 'phone' && S.screen !== 'cook' && (S.screen === 'home' || S.screen === 'recipes') ? 'flex' : 'none';
+
+    $$('.screen-view').forEach(el => el.classList.toggle('active', el.dataset.screen === S.screen));
+
+    const homeEmpty = $('#homeEmpty'), homeData = $('#homeData');
+    if (homeEmpty) homeEmpty.style.display = S.home === 'empty' ? 'flex' : 'none';
+    if (homeData) homeData.style.display = S.home === 'empty' ? 'none' : 'block';
+
+    const rGrid = $('#recipesGrid'), rEmpty = $('#recipesEmpty');
+    if (rGrid) rGrid.style.display = S.recipes === 'empty' ? 'none' : 'grid';
+    if (rEmpty) rEmpty.style.display = S.recipes === 'empty' ? 'flex' : 'none';
+
+    const sData = $('#shopData'), sEmpty = $('#shopEmpty');
+    if (sData) sData.style.display = S.shopping === 'empty' ? 'none' : 'block';
+    if (sEmpty) sEmpty.style.display = S.shopping === 'empty' ? 'flex' : 'none';
+
+    $$('#detailSeg button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
+    $$('.tab-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === S.tab));
+
+    const capStates = {
+      preparing: '#capPreparing', needsWebView: '#capNeeds', downloading: '#capDownloading',
+      success: '#capSuccess', failed: '#capFailed'
+    };
+    Object.keys(capStates).forEach(k => {
+      const el = $(capStates[k]);
+      if (el) el.style.display = S.capture === k ? 'block' : 'none';
+    });
+    const parseBtn = $('#btnParse');
+    if (parseBtn) {
+      const busy = S.capture === 'preparing' || S.capture === 'downloading';
+      const capText = $('#capText');
+      const sample = '王强:3.07 复制打开抖音，看看【西关焖烧男的作品】比烧烤还好吃！... https://v.douyin.com/auY2beN-dPo/';
+      if (S.capture !== 'idle' && capText && !capText.value) {
+        capText.value = sample;
+        capText.dataset.auto = '1';
+      }
+      if (S.capture === 'idle' && capText && capText.dataset.auto === '1') {
+        capText.value = '';
+        delete capText.dataset.auto;
+      }
+      const hasText = !!(capText && capText.value.trim());
+      parseBtn.disabled = busy || !hasText;
+      parseBtn.textContent = busy ? '解析中…' : '解析';
+      parseBtn.classList.toggle('btn-primary', !parseBtn.disabled);
+      const parsedRow = $('#capParsed');
+      if (parsedRow) parsedRow.style.display = hasText ? 'flex' : 'none';
+    }
+
+    pages.style.transform = 'translateX(' + (-S.cook * 100) + '%)';
+    $('#cookCount').textContent = (S.cook + 1) + '/4';
+    $('#btnPrev').disabled = S.cook === 0;
+    $('#btnNext').textContent = S.cook >= 3 ? '做完了' : '下一步';
+
+    const activeTab = S.screen;
+    $$('#bottomnav .nav-item, #rail .rail-item').forEach(it => {
+      it.classList.toggle('on', it.dataset.go === activeTab);
+    });
+
+    $$('.dialog-wrap').forEach(d => d.classList.toggle('on', !!S.dialog && d.dataset.dialog === S.dialog));
+
+    renderTimers();
+    renderStateSelect();
+  }
+
+  function renderTimers() {
+    if (!timersEl) return;
+    timersEl.innerHTML = '';
+    S.timers.forEach((t, i) => {
+      const b = document.createElement('button');
+      b.className = 'timer-chip tap' + (t.running ? ' run' : '');
+      b.innerHTML = '<span>' + fmt(t.sec) + '</span><span class="x"><svg class="ic"><use href="#i-close"/></svg></span>';
+      b.onclick = (e) => {
+        if (e.target.closest('.x')) { S.timers.splice(i, 1); }
+        else { t.running = !t.running; }
+        render();
+      };
+      timersEl.appendChild(b);
+    });
+    const add = document.createElement('button');
+    add.className = 'add tap';
+    add.setAttribute('aria-label', '加计时');
+    add.innerHTML = '<svg class="ic"><use href="#i-add"/></svg>';
+    add.onclick = () => { S.dialog = 'timer'; render(); };
+    timersEl.appendChild(add);
+  }
+
+  function fmt(sec) {
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function renderStateSelect() {
+    const sel = $('#selState');
+    if (!sel) return;
+    const list = SCREEN_STATES[S.screen] || ['default'];
+    sel.innerHTML = list.map(v => '<option value="' + v + '">' + v + '</option>').join('');
+    let cur = 'default';
+    if (S.screen === 'home') cur = S.home;
+    else if (S.screen === 'recipes') cur = S.recipes;
+    else if (S.screen === 'shopping') cur = S.shopping;
+    else if (S.screen === 'capture') cur = S.capture;
+    else if (S.screen === 'recipe') cur = S.tab;
+    else if (S.screen === 'cook') cur = S.dialog ? S.dialog : ('step' + (S.cook + 1));
+    sel.value = cur;
+  }
+
+  function go(screen) {
+    if (screen === 'recipe') S.screen = 'recipe';
+    else if (screen === 'cook') { S.screen = 'cook'; S.dialog = null; }
+    else S.screen = screen;
+    S.dialog = null;
+    render();
+  }
+
+  function addTimer(sec) {
+    S.timers.push({ sec: sec, running: true });
+    S.dialog = null;
+    render();
+    if (!window.__timerTick) {
+      window.__timerTick = setInterval(() => {
+        let changed = false;
+        S.timers.forEach(t => {
+          if (t.running && t.sec > 0) { t.sec--; changed = true; if (t.sec === 0) t.running = false; }
+        });
+        if (changed) renderTimers();
+      }, 1000);
+    }
+  }
+
+  // 事件委托
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-go],[data-tab],[data-dialog],[data-timer]');
+    if (!t) return;
+    if (t.dataset.go) { go(t.dataset.go); return; }
+    if (t.dataset.tab) { S.tab = t.dataset.tab; render(); return; }
+    if (t.dataset.dialog) { S.dialog = t.dataset.dialog; render(); return; }
+    if (t.dataset.timer) { addTimer(parseInt(t.dataset.timer, 10)); return; }
+  });
+
+  // 点击对话框外关闭（对应 AlertDialog.onDismissRequest）
+  $$('.dialog-wrap').forEach(w => w.addEventListener('click', (e) => {
+    if (e.target === w) { S.dialog = null; render(); }
+  }));
+
+  // Ripple
+  document.addEventListener('pointerdown', (e) => {
+    const t = e.target.closest('.tap');
+    if (!t) return;
+    const r = t.getBoundingClientRect();
+    const size = Math.max(r.width, r.height) * 1.1;
+    const s = document.createElement('span');
+    s.className = 'ripple';
+    s.style.width = s.style.height = size + 'px';
+    s.style.left = (e.clientX - r.left - size / 2) + 'px';
+    s.style.top = (e.clientY - r.top - size / 2) + 'px';
+    t.appendChild(s);
+    setTimeout(() => s.remove(), 400);
+  });
+
+  // 烹饪翻页
+  $('#btnPrev').onclick = () => { if (S.cook > 0) { S.cook--; render(); } };
+  $('#btnNext').onclick = () => { if (S.cook < 3) { S.cook++; render(); } else { S.dialog = 'finish'; render(); } };
+
+  let dragX = null;
+  const pager = $('#pager');
+  pager.addEventListener('pointerdown', (e) => {
+    dragX = e.clientX;
+    pages.style.transition = 'none';
+    pager.setPointerCapture(e.pointerId);
+  });
+  pager.addEventListener('pointermove', (e) => {
+    if (dragX === null) return;
+    const dx = e.clientX - dragX;
+    pages.style.transform = 'translateX(calc(' + (-S.cook * 100) + '% + ' + dx + 'px))';
+  });
+  pager.addEventListener('pointerup', (e) => {
+    if (dragX === null) return;
+    const dx = e.clientX - dragX;
+    dragX = null;
+    pages.style.transition = 'transform 350ms cubic-bezier(.2,0,0,1)';
+    if (dx < -40 && S.cook < 3) S.cook++;
+    else if (dx > 40 && S.cook > 0) S.cook--;
+    render();
+  });
+
+  // 收录演示
+  $('#btnParse').onclick = () => {
+    if (S.capture === 'idle') {
+      S.capture = 'preparing'; render();
+      setTimeout(() => { S.capture = 'downloading'; render(); }, 700);
+      setTimeout(() => { S.capture = 'success'; render(); }, 1800);
+    }
+  };
+
+  $('#capText').addEventListener('input', () => {
+    const t = $('#capText');
+    const has = !!t.value.trim();
+    const row = $('#capParsed');
+    if (row) row.style.display = has ? 'flex' : 'none';
+    const b = $('#btnParse');
+    if (b) { b.disabled = !has; b.classList.toggle('btn-primary', has); }
+  });
+
+  // 工具栏
+  $('#selScreen').onchange = (e) => { S.screen = e.target.value; S.dialog = null; render(); };
+  $('#selState').onchange = (e) => setState(e.target.value);
+  $('#selDevice').onchange = (e) => { S.device = e.target.value; render(); };
+  $('#btnTheme').onclick = () => { S.theme = S.theme === 'light' ? 'dark' : 'light'; render(); };
+
+  // 设置页三段控件：只切换选中态（应用内实际未接入主题）
+  $$('#themeSeg button').forEach(b => b.onclick = () => {
+    $$('#themeSeg button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+  });
+
+  window.weiji = {
+    show: go,
+    setTheme: (t) => { S.theme = t; render(); },
+    setDevice: (d) => { S.device = d; render(); },
+    setState: (v) => setState(v),
+    setTab: (t) => { S.tab = t; render(); },
+    dialog: (d) => { S.dialog = d; render(); },
+    page: (n) => { S.cook = Math.max(0, Math.min(3, n)); render(); },
+    addTimer: addTimer,
+    state: S
+  };
+
+  applyParams();
+  render();
+})();
+</script>
+</body>
+</html>
