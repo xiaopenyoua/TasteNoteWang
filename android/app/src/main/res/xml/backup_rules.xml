@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <include domain="database" path="." />
+    <include domain="file" path="recipes" />
+    <exclude domain="file" path="cookies" />
+    <exclude domain="sharedpref" path="secure_cookies.xml" />
+    <exclude domain="file" path="cache" />
+    <exclude domain="external" path="." />
+</full-backup-content>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">味记・王</string>
+    <string name="app_name_short">味记</string>
+
+    <string name="nav_home">今天</string>
+    <string name="nav_recipes">菜谱</string>
+    <string name="nav_shopping">采购</string>
+    <string name="nav_settings">我的</string>
+
+    <string name="action_capture">收录</string>
+    <string name="action_search">搜索</string>
+    <string name="action_cook">开始做</string>
+    <string name="action_save">保存</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_delete">删除</string>
+    <string name="action_retry">重试</string>
+
+    <string name="capture_hint">粘贴抖音、小红书、B站的分享链接</string>
+    <string name="capture_analyze">解析</string>
+    <string name="capture_manual">手动创建</string>
+
+    <string name="source_label">来源</string>
+    <string name="source_unknown_author">原作者未知</string>
+    <string name="source_link_may_expire">原链接可能失效</string>
+
+    <string name="cook_keep_screen_on">屏幕常亮</string>
+    <string name="cook_next">下一步</string>
+    <string name="cook_prev">上一步</string>
+    <string name="cook_finish">做完了</string>
+
+    <string name="empty_home_title">今晚吃什么？</string>
+    <string name="empty_home_body">先把刷到的教程收进来，味记会帮你排成能照着做的步骤。</string>
+    <string name="empty_recipes_title">还没有菜谱</string>
+    <string name="empty_recipes_body">从抖音、小红书或 B 站分享一条链接进来。</string>
+
+    <string name="settings_export">导出备份</string>
+    <string name="settings_import">从备份恢复</string>
+    <string name="settings_storage">存储空间</string>
+    <string name="settings_login">平台登录</string>
+    <string name="settings_about">关于味记・王</string>
+    <string name="settings_clear_cookies">清除平台登录信息</string>
+
+    <string name="privacy_note">所有内容只保存在本机。平台登录信息仅用于你自己发起的链接解析，不会上传。</string>
+</resources>

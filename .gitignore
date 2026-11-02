@@ -1,33 +1,44 @@
-# macOS
-.DS_Store
+# ─────────────────────────────────────────────
+# 味记・王 — 仓库忽略规则
+# 归属规则见 AGENTS.md；本文件只回答「什么不进 git」。
+# ─────────────────────────────────────────────
 
-# IDE
+# ── macOS / 编辑器 ──
+.DS_Store
 .idea/
 *.iml
 .vscode/
 *.swp
 
-# Android / Gradle
-app/.gradle/
-app/build/
-app/local.properties
-app/.cxx/
-app/captures/
+# ── Android / Gradle 构建产物（只在 android/ 下）──
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/.cxx/
+android/captures/
+android/.idea/
+local.properties
+
+# 安装包与签名：构建产物，不入库
 *.apk
 *.aab
 *.keystore
 *.jks
 
-# 设计源文件（本地保留，不入库）
+# 说明：android/app/schemas/ 是 Room 数据库结构导出，必须入库，不要忽略。
+
+# ── 本地私有区（整体不入库）──
+# 平台抓包、调试 JSON、临时导出、设计源文件
+local/
 design/source/
 
-# 临时与导出
-*.tmp
+# ── 工具产物 / 临时文件 ──
+.playwright-mcp/
 *.log
-tmp/
-.DS_Store
+*.tmp
 
-# 用户数据 / 抓取内容（永不入库）
+# ── 用户数据 / 抓取内容 ──
 data/
 *.sqlite
 *.db
