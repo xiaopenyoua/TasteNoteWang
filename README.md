@@ -54,6 +54,7 @@ TasteNoteWang/
 | 东西放哪里、文件怎么命名 | [`AGENTS.md`](AGENTS.md) |
 | 设计侧总索引 | [`design/README.md`](design/README.md) |
 | 已实现 UI 交互设计稿 | [`design/prototype/ui.html`](design/prototype/ui.html) |
+| UI 变更提案（待确认） | [`design/product/ui-change-proposal.md`](design/product/ui-change-proposal.md) / [`design/prototype/ui-proposal.html`](design/prototype/ui-proposal.html) |
 | 设计稿与代码逐屏对照 | [`design/product/implemented-ui-spec.md`](design/product/implemented-ui-spec.md) |
 | 产品需求与界面规格 | [`design/product/`](design/product/) |
 | 判断依据总索引 | [`docs/README.md`](docs/README.md) |

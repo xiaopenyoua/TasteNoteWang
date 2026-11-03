@@ -73,6 +73,9 @@ body.chrome #stage{padding-top:80px}
   scrollbar-width:none}
 .screen-view::-webkit-scrollbar{display:none}
 .screen-view.active{opacity:1;pointer-events:auto}
+.screen-view[data-screen="recipe"]{overflow:hidden}
+.detail-scroll{position:absolute;inset:0 0 70px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.detail-scroll::-webkit-scrollbar{display:none}
 
 /* ── 字阶（Type.kt） ── */
 .t-display{font-size:34px;line-height:40px;font-weight:700;letter-spacing:-.4px}
@@ -421,6 +424,8 @@ body.chrome #stage{padding-top:80px}
 
 /* ── Ripple（Material 3：约 225ms 扩散 + 150ms 淡出） ── */
 .tap{position:relative;overflow:hidden}
+/* .tap 的 position:relative 与 .detail-back 同权重且更靠后，需提高一级优先级 */
+.detail-back.tap{position:absolute}
 .ripple{position:absolute;border-radius:50%;background:currentColor;opacity:.18;transform:scale(0);
   animation:ripple 375ms ease-out;pointer-events:none}
 @keyframes ripple{to{transform:scale(1);opacity:0}}
@@ -587,6 +592,7 @@ body.chrome #stage{padding-top:80px}
 
         <!-- ═══════════ 详情 ═══════════ -->
         <section class="screen-view" data-screen="recipe">
+          <div class="detail-scroll">
           <div class="detail-cover cover" style="position:relative">
             <svg class="ic"><use href="#i-bowl"/></svg>
             <button class="detail-back tap" data-go="recipes" aria-label="返回"><svg class="ic"><use href="#i-back"/></svg></button>
@@ -668,6 +674,7 @@ body.chrome #stage{padding-top:80px}
                 <p class="t-body-m log-notes">第一次做，盐少了。</p>
               </div>
             </div>
+          </div>
           </div>
           <div class="detail-actions">
             <button class="icon-btn on tap" aria-label="取消收藏"><svg class="ic"><use href="#i-heart"/></svg></button>
