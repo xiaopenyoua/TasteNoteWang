@@ -2,7 +2,7 @@
 doc: design/product/information-architecture
 title: 信息架构与导航（手机 / 平板）
 status: draft
-date: 2026-10-30
+date: 2026-11-03
 owner: wang
 related:
   - design/product/prd
@@ -10,6 +10,8 @@ related:
 ---
 
 # 信息架构与导航
+
+> **2026-11-03 说明**：首页「今晚吃什么」、烹饪模式与记录已被 [`ui-change-proposal.md`](ui-change-proposal.md) 取代（改为今天菜单、步骤内计时、备注与历史快照）；本文的站点地图与首页逻辑尚未同步，冲突时以提案为准。
 
 ## 1. 断点
 

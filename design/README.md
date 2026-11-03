@@ -48,7 +48,7 @@ design/
 4. [`product/visual-language.md`](product/visual-language.md) —— 颜色、字阶、形状、间距。
 5. [`prototype/ui.html`](prototype/ui.html) —— 已实现界面与动效的可交互设计稿。
 6. [`product/implemented-ui-spec.md`](product/implemented-ui-spec.md) —— 设计稿与代码的逐屏对照。
-7. [`product/ui-change-proposal.md`](product/ui-change-proposal.md) —— 待确认的 UI 变更提案（详情/编辑/媒体/备注/登录/采购合并与编辑/每日菜单历史）。
+7. [`product/ui-change-proposal.md`](product/ui-change-proposal.md) —— 待确认的 UI 变更提案（详情/编辑/媒体/备注/登录/采购合并与编辑/每日菜单历史/搜索/存储/数据迁移）。
 8. [`prototype/ui-proposal.html`](prototype/ui-proposal.html) —— 提案的可视稿。
 
 ## 与开发区的边界

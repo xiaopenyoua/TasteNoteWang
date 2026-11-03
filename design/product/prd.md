@@ -2,7 +2,7 @@
 doc: design/product/prd
 title: 产品需求文档（PRD）
 status: draft
-date: 2026-10-30
+date: 2026-11-03
 owner: wang
 related:
   - docs/research/2026-10-30-market-research
@@ -11,6 +11,8 @@ related:
 ---
 
 # 味记・王 产品需求文档（PRD）
+
+> **2026-11-03 说明**：首页结构、详情备注、烹饪模式、采购与历史正在按 [`ui-change-proposal.md`](ui-change-proposal.md) 调整；本文尚未逐条同步，冲突时以提案为准。
 
 > **一句话**：把抖音、小红书、B 站里收藏的美食教程收进来，自动排成今晚能照着做的一道菜，并记住你每次做时的改动。
 > 这不是菜谱库、不是社区、不是信息流。它只回答一个问题：**「我收藏的这份教程，今晚能不能做出来？」**

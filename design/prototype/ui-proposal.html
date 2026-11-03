@@ -708,6 +708,77 @@ body.chrome #stage{padding-top:80px}
 .hist-row .h-meta{display:flex;align-items:center;gap:6px;margin-top:3px}
 .hist-empty{padding:28px 16px;text-align:center;font-size:15px;line-height:22px;color:var(--on-var)}
 
+
+/* ── 搜索 ── */
+.search-page{padding-bottom:24px}
+.search-top{display:flex;align-items:center;gap:8px;padding:12px 16px 4px}
+.search-top .search{flex:1;height:38px;border-radius:19px;background:var(--variant);display:flex;align-items:center;gap:8px;padding:0 12px}
+.search-top .search .ic{width:17px;height:17px;color:var(--on-var);flex:none}
+.search-top input{flex:1;min-width:0;border:0;background:transparent;color:var(--on);font-family:inherit;font-size:15px;line-height:22px;outline:none}
+.search-top input::placeholder{color:var(--tertiary)}
+.search-count{padding:8px 16px 2px;font-size:11px;line-height:14px;color:var(--on-var)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:4px 16px 10px}
+.search-empty{padding:110px 24px;text-align:center}
+.search-empty .circle{width:72px;height:72px;border-radius:50%;background:var(--variant);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.search-empty .circle .ic{width:34px;height:34px;color:var(--on-var)}
+.hist-row .h-reason{font-size:11px;line-height:14px;color:var(--tertiary);margin-top:2px}
+
+/* ── 存储空间 ── */
+.storage-page{padding-bottom:32px}
+.storage-card{background:var(--surface);border-radius:16px;margin:4px 16px;padding:18px 16px}
+.storage-total{display:flex;align-items:baseline;gap:8px}
+.storage-bar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--variant);margin-top:14px}
+.storage-bar i{display:block;height:6px}
+.storage-bar .v{background:var(--primary)}
+.storage-bar .p{background:var(--tertiary)}
+.storage-bar .h{background:var(--on-var)}
+.storage-bar .d{background:var(--outline)}
+.storage-legend{margin-top:10px;font-size:11px;line-height:18px;color:var(--on-var)}
+.storage-row{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:14px;padding:10px 12px;margin:2px 16px;text-align:left}
+.storage-row .s-cover{width:40px;height:40px;border-radius:10px;flex:none}
+.storage-row .s-body{flex:1;min-width:0}
+.storage-row .s-size{font-size:11px;line-height:14px;color:var(--on-var);white-space:nowrap}
+.storage-clean{font-size:13px;line-height:18px;font-weight:600;color:var(--error);padding:6px 2px;flex:none}
+.storage-actions{padding:16px 16px 0}
+.storage-danger{display:block;margin:18px auto 0;color:var(--error);font-size:13px;line-height:18px;font-weight:600;padding:8px 12px}
+
+/* ── 数据迁移 ── */
+.migrate-page{padding-bottom:32px}
+.migrate-card{background:var(--surface);border-radius:16px;margin:4px 16px 14px;padding:20px 16px;text-align:center}
+.migrate-card .ic.big-ic{width:44px;height:44px;color:var(--primary);margin:0 auto 10px}
+.migrate-card .big{font-size:22px;line-height:28px;font-weight:600}
+.migrate-card .sub{margin-top:4px}
+.migrate-actions{display:flex;flex-direction:column;gap:10px;padding:0 16px}
+.migrate-note{padding:12px 16px;font-size:11px;line-height:16px;color:var(--on-var)}
+.migrate-section{padding:0 16px;display:flex;flex-direction:column;gap:10px}
+.migrate-file{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:14px;padding:12px}
+.migrate-file .ic{width:22px;height:22px;color:var(--primary);flex:none}
+.migrate-file .f-body{flex:1;min-width:0}
+.migrate-progress{padding:28px 16px 0}
+.migrate-progress .pct{font-size:34px;line-height:40px;font-weight:700;letter-spacing:-.4px}
+.migrate-progress .bar{height:6px;border-radius:3px;background:var(--variant);margin-top:14px;overflow:hidden}
+.migrate-progress .bar i{display:block;height:6px;border-radius:3px;background:var(--primary);width:43%}
+.migrate-progress .meta{margin-top:10px;font-size:13px;line-height:18px;color:var(--on-var)}
+.migrate-done{padding:40px 16px 0;text-align:center}
+.migrate-done .ok{width:72px;height:72px;border-radius:50%;background:rgba(52,199,89,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+.migrate-done .ok .ic{width:36px;height:36px;color:var(--tertiary)}
+.migrate-done .ok.err{background:rgba(255,59,48,.10)}
+.migrate-done .ok.err .ic{color:var(--error)}
+.migrate-done .actions{margin-top:22px;display:flex;flex-direction:column;gap:10px}
+
+/* ── 历史快照 ── */
+.hd-body{padding-bottom:24px}
+.hd-foot{margin-top:20px;padding:14px;border-radius:14px;background:var(--variant);font-size:11px;line-height:16px;color:var(--on-var)}
+
+/* ── Snackbar ── */
+.snackbar{position:absolute;left:16px;right:16px;bottom:96px;background:#1C1C1E;color:#fff;border-radius:14px;
+  padding:12px 16px;display:none;align-items:center;gap:12px;z-index:40;font-size:15px;line-height:22px}
+[data-theme="dark"] .snackbar{background:#2C2C2E}
+.snackbar.on{display:flex}
+.snackbar.with-fab{bottom:168px}
+.snackbar span{flex:1;min-width:0}
+.snack-action{color:var(--primary);font-size:15px;line-height:20px;font-weight:600;flex:none}
+
 /* 手机/平板适配 */
 .device.tablet .page-header{padding-left:16px;padding-right:16px}
 .device.tablet .suggestion-card{flex-basis:264px}
@@ -718,9 +789,10 @@ body.chrome #stage{padding-top:80px}
 <div id="toolbar">
   <div class="brand">味记・王 · UI 变更提案（待确认）</div>
   <label>页面 <select id="selScreen">
-    <option value="home">今天</option><option value="history">吃过的菜</option><option value="recipes">菜谱</option>
-    <option value="recipe">详情</option>
+    <option value="home">今天</option><option value="history">吃过的菜</option><option value="historyDetail">当天快照</option>
+    <option value="recipes">菜谱</option><option value="search">搜索</option><option value="recipe">详情</option>
     <option value="capture">收录</option><option value="shopping">采购</option>
+    <option value="storage">存储空间</option><option value="migrate">数据迁移</option>
     <option value="settings">我的</option><option value="edit">编辑</option>
     <option value="login">登录</option>
   </select></label>
@@ -850,12 +922,233 @@ body.chrome #stage{padding-top:80px}
           </div>
         </section>
 
+        <!-- ═══════════ 搜索 ═══════════ -->
+        <section class="screen-view" data-screen="search">
+          <div class="search-page">
+            <div class="search-top">
+              <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="searchInput" placeholder="搜菜名、食材、作者" autocomplete="off"></div>
+              <button class="link tap" data-go="recipes">取消</button>
+            </div>
+            <div id="searchIdle">
+              <div class="section-header"><h2 class="t-title">最近搜索</h2><button class="link tap">清除</button></div>
+              <div class="chips">
+                <button class="filter tap">土豆</button><button class="filter tap">牛腩</button>
+                <button class="filter tap">15 分钟</button><button class="filter tap">王刚</button>
+              </div>
+            </div>
+            <div id="searchResults" style="display:none">
+              <p class="search-count" id="searchCount">找到 2 道</p>
+              <div id="searchList"></div>
+            </div>
+            <div id="searchEmpty" class="search-empty" style="display:none">
+              <div class="circle"><svg class="ic"><use href="#i-search"/></svg></div>
+              <h2 class="t-h2">没找到</h2>
+              <p class="t-body-m sub" style="margin-top:8px">换个词试试，或者检查有没有错字。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 历史快照（只读） ═══════════ -->
+        <section class="screen-view" data-screen="historyDetail">
+          <div class="detail-scroll">
+            <div class="detail-cover cover" style="position:relative">
+              <svg class="ic"><use href="#i-bowl"/></svg>
+              <button class="detail-back tap" data-go="history" aria-label="返回"><svg class="ic"><use href="#i-back"/></svg></button>
+              <div class="top-actions"><button class="top-action tap" data-go="recipe" aria-label="打开当前菜谱"><svg class="ic"><use href="#i-external"/></svg></button></div>
+            </div>
+            <div class="detail-body hd-body">
+              <h1 class="t-h1 detail-title">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</h1>
+              <p class="t-body-m sub detail-sub">11月2日 · 周一 · 2 人份</p>
+              <div class="sourcebar">
+                <span class="badge dy"><i></i>抖音</span>
+                <span class="t-body-s sub author">@西关焖烧男</span>
+                <span class="t-body-s open">原链接 ↗</span>
+              </div>
+              <div class="meta-row"><span class="chip">2 人份</span><span class="chip">约 30 分钟</span><span class="chip">当天的快照</span></div>
+
+              <div class="section-header" style="padding-left:0;padding-right:0"><h2 class="t-title">食材</h2></div>
+              <div class="ing-list">
+                <div class="ing-row"><span class="t-body name">牛里脊或牛排肉</span><span class="t-body">400克</span></div><div class="ing-sep"></div>
+                <div class="ing-row"><span class="t-body name">土豆</span><span class="t-body">300克</span></div><div class="ing-sep"></div>
+                <div class="ing-row"><span class="t-body name">大蒜</span><span class="t-body">4瓣</span></div><div class="ing-sep"></div>
+                <div class="ing-row"><span class="t-body name">小葱</span><span class="t-body">15克</span></div>
+              </div>
+
+              <div class="section-header" style="padding-left:0;padding-right:0"><h2 class="t-title">步骤</h2></div>
+              <div class="step-card">
+                <div class="step-head"><span class="step-no">1</span><span class="step-label">第 1 步</span><span class="t-label-s sub">10 分钟</span></div>
+                <p class="t-body step-text">牛里脊切薄片，加生抽、料酒、淀粉抓匀，腌 10 分钟。</p>
+              </div>
+              <div class="step-card">
+                <div class="step-head"><span class="step-no">2</span><span class="step-label">第 2 步</span><span class="t-label-s sub">5 分钟</span></div>
+                <p class="t-body step-text">土豆切条，清水冲去表面淀粉，沥干。</p>
+              </div>
+              <div class="step-card">
+                <div class="step-head"><span class="step-no">3</span><span class="step-label">第 3 步</span></div>
+                <p class="t-body step-text">热锅多油，土豆条煎到金黄，盛出。</p>
+                <div class="step-note"><div class="sn-head"><span>备注 · 11月2日</span></div><div class="sn-text">土豆先煎更脆，别切太细。</div></div>
+              </div>
+
+              <div class="section-header" style="padding-left:0;padding-right:0"><h2 class="t-title">我的备注</h2></div>
+              <div class="log-card note-card">
+                <div class="log-head"><span class="date">11月2日 11:07</span></div>
+                <p class="t-body-m log-notes">孜然多放了一点，土豆先煎更脆。</p>
+              </div>
+
+              <div class="hd-foot">这是 11月2日 加入时的快照；之后修改或删除菜谱都不会改变这里。</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 存储空间 ═══════════ -->
+        <section class="screen-view" data-screen="storage">
+          <div class="storage-page">
+            <div class="page-header">
+              <div class="h-row"><button class="add-circle tap" data-go="settings" aria-label="返回"><svg class="ic"><use href="#i-back"/></svg></button><h1 class="t-display" style="padding-left:4px">存储空间</h1></div>
+              <p class="t-body-m sub">本机占用</p>
+            </div>
+            <div class="storage-card">
+              <div class="storage-total"><span class="t-h1">28.4 GB</span><span class="t-label-s sub">已用 · 可用 12.1 GB</span></div>
+              <div class="storage-bar"><i class="v" style="width:62%"></i><i class="p" style="width:24%"></i><i class="h" style="width:8%"></i><i class="d" style="width:6%"></i></div>
+              <div class="storage-legend">视频 17.6 GB · 图片 6.8 GB · 历史封面 2.3 GB · 数据库 1.7 GB</div>
+            </div>
+
+            <div class="section-header"><h2 class="t-title">明细</h2></div>
+            <div class="group">
+              <div class="row"><span class="t-body r-title">视频</span><span class="r-value">17.6 GB</span></div><div class="hair"></div>
+              <div class="row"><span class="t-body r-title">图片</span><span class="r-value">6.8 GB</span></div><div class="hair"></div>
+              <div class="row"><span class="t-body r-title">历史快照封面</span><span class="r-value">2.3 GB</span></div><div class="hair"></div>
+              <div class="row"><span class="t-body r-title">数据库</span><span class="r-value">1.7 GB</span></div><div class="hair"></div>
+              <div class="row"><span class="t-body r-title">临时文件</span><span class="r-value">0.3 GB</span></div>
+            </div>
+
+            <div class="section-header"><h2 class="t-title">按菜谱</h2></div>
+            <div class="storage-row" id="storageRow1">
+              <div class="cover s-cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+              <div class="s-body"><div class="t-body-m clamp2">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</div><div class="t-label-s sub">视频 + 3 张图</div></div>
+              <span class="s-size">1.2 GB</span><button class="storage-clean tap">清理媒体</button>
+            </div>
+            <div class="storage-row">
+              <div class="cover s-cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+              <div class="s-body"><div class="t-body-m clamp2">港式牛腩煲 | 暖乎乎巨好吃</div><div class="t-label-s sub">4 张图</div></div>
+              <span class="s-size">860 MB</span><button class="storage-clean tap">清理媒体</button>
+            </div>
+            <div class="storage-row">
+              <div class="cover s-cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+              <div class="s-body"><div class="t-body-m clamp2">记住这些万能炒菜公式</div><div class="t-label-s sub">视频</div></div>
+              <span class="s-size">640 MB</span><button class="storage-clean tap">清理媒体</button>
+            </div>
+
+            <div class="storage-actions"><button class="btn-secondary tap" style="width:100%;height:46px">清理临时文件</button></div>
+            <button class="storage-danger tap">清空全部数据</button>
+          </div>
+        </section>
+
+        <!-- ═══════════ 数据迁移 ═══════════ -->
+        <section class="screen-view" data-screen="migrate">
+          <div class="migrate-page">
+            <div class="page-header">
+              <div class="h-row"><button class="add-circle tap" data-go="settings" aria-label="返回"><svg class="ic"><use href="#i-back"/></svg></button><h1 class="t-display" style="padding-left:4px">数据迁移</h1></div>
+              <p class="t-body-m sub">换到新设备时，把全部数据带过去</p>
+            </div>
+
+            <div id="migrateHub">
+              <div class="migrate-card">
+                <svg class="ic big-ic"><use href="#i-swap"/></svg>
+                <div class="big">28.4 GB</div>
+                <div class="sub t-body-m sub">842 个文件 · 128 道菜谱</div>
+              </div>
+              <div class="migrate-actions">
+                <button class="btn btn-primary tap" data-mstate="export">迁出（旧设备）</button>
+                <button class="btn-secondary tap" style="height:50px" data-mstate="import">迁入（新设备）</button>
+              </div>
+              <p class="migrate-note">平台登录信息（Cookie）不会迁移，新设备需要重新登录。迁移包内含全部菜谱与视频，迁移完成后请删除。</p>
+              <div class="section-header"><h2 class="t-title">最近迁移</h2></div>
+              <div class="group"><div class="row"><span class="t-body r-title">2026-10-30 · 迁出</span><span class="r-value">完成 · 24.1 GB</span></div></div>
+            </div>
+
+            <div id="migrateExport" style="display:none">
+              <div class="section-header"><h2 class="t-title">迁出</h2></div>
+              <div class="migrate-section">
+                <div class="seg"><button class="on">全部数据</button><button>仅菜谱（不含视频）</button></div>
+                <div class="migrate-file">
+                  <svg class="ic"><use href="#i-archive"/></svg>
+                  <div class="f-body"><div class="t-body-m">保存到</div><div class="t-label-s sub">下载 / 味记迁移</div></div>
+                  <button class="link tap">更换</button>
+                </div>
+                <div class="migrate-file">
+                  <svg class="ic"><use href="#i-list"/></svg>
+                  <div class="f-body"><div class="t-body-m">weiji-migration-2026-11-03.zip</div><div class="t-label-s sub">预计 28.4 GB · 自动分 15 卷</div></div>
+                </div>
+                <p class="editor-hint">中断后保留已完成的分卷，可以继续打包。</p>
+                <button class="btn btn-primary tap" data-mstate="progress">开始打包</button>
+                <button class="btn-secondary tap" style="height:46px" data-mstate="hub">返回</button>
+              </div>
+            </div>
+
+            <div id="migrateImport" style="display:none">
+              <div class="section-header"><h2 class="t-title">迁入</h2></div>
+              <div class="migrate-section">
+                <div class="migrate-file">
+                  <svg class="ic"><use href="#i-archive"/></svg>
+                  <div class="f-body"><div class="t-body-m">weiji-migration-2026-11-03.zip.001</div><div class="t-label-s sub">15 卷 · 已找到 15 卷</div></div>
+                  <button class="link tap">更换</button>
+                </div>
+                <div class="migrate-card" style="text-align:left;margin:0">
+                  <div class="t-title-m">预览</div>
+                  <div class="t-body-m sub" style="margin-top:6px">128 道菜谱 · 842 个文件 · 28.4 GB<br>导出 2026-11-03 · 应用 0.1.0</div>
+                </div>
+                <div class="t-label-s sub">本机已有数据时</div>
+                <div class="seg"><button class="on">覆盖</button><button>合并</button></div>
+                <p class="editor-hint">覆盖会清空本机现有菜谱与媒体；合并按菜谱 ID 去重，迁移包优先。</p>
+                <button class="btn btn-primary tap" data-mstate="progress">开始导入</button>
+                <button class="btn-secondary tap" style="height:46px" data-mstate="hub">返回</button>
+              </div>
+            </div>
+
+            <div id="migrateProgress" style="display:none">
+              <div class="migrate-progress">
+                <div class="t-title-m" id="migrateProgressTitle">正在打包</div>
+                <div class="pct">43%</div>
+                <div class="bar"><i></i></div>
+                <div class="meta" id="migrateProgressMeta">12.3 GB / 28.4 GB · 视频 218 / 842</div>
+                <div class="meta">剩余约 6 分钟</div>
+                <button class="btn-secondary tap" style="width:100%;height:46px;margin-top:18px" data-mstate="hub">取消</button>
+              </div>
+            </div>
+
+            <div id="migrateDone" style="display:none">
+              <div class="migrate-done">
+                <div class="ok"><svg class="ic"><use href="#i-check"/></svg></div>
+                <h2 class="t-h2" id="migrateDoneTitle">迁移包已生成</h2>
+                <p class="t-body-m sub" style="margin-top:8px" id="migrateDoneText">15 个分卷，已完成 SHA-256 校验。把整个文件夹带到新设备。</p>
+                <div class="actions">
+                  <button class="btn btn-primary tap" data-mstate="hub">完成</button>
+                  <button class="btn-secondary tap" style="height:46px" data-clear-device>清除本机数据</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="migrateFailed" style="display:none">
+              <div class="migrate-done">
+                <div class="ok err"><svg class="ic"><use href="#i-close"/></svg></div>
+                <h2 class="t-h2">迁移中断</h2>
+                <p class="t-body-m sub" style="margin-top:8px">目标位置剩余空间不足：需要 28.4 GB，可用 12.1 GB。</p>
+                <div class="actions">
+                  <button class="btn btn-primary tap" data-mstate="progress">重试</button>
+                  <button class="btn-secondary tap" style="height:46px" data-mstate="hub">返回</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- ═══════════ 菜谱 ═══════════ -->
         <section class="screen-view" data-screen="recipes">
           <div class="recipes-page">
             <div class="page-header"><h1 class="t-display">菜谱</h1><p class="t-body-m sub">4 道</p></div>
             <div class="recipes-tools">
-              <div class="search tap"><svg class="ic"><use href="#i-search"/></svg><span class="ph">搜菜名、食材、作者</span></div>
+              <div class="search tap" data-go="search"><svg class="ic"><use href="#i-search"/></svg><span class="ph">搜菜名、食材、作者</span></div>
               <div class="filters">
                 <button class="filter on tap">全部</button><button class="filter tap">收藏</button>
                 <button class="filter tap">没做过</button><button class="filter tap">30 分钟内</button>
@@ -1098,10 +1391,10 @@ body.chrome #stage{padding-top:80px}
               <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="牛腩" data-amount="500" data-unit="克"><div class="t-body name">牛腩</div><div class="t-label-s merge-sub">500克</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
               <div class="section-header"><h2 class="t-title">蔬菜</h2></div>
               <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="土豆" data-amount="300" data-unit="克"><div class="t-body name">土豆</div><div class="t-label-s merge-sub">300克</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
-              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-merged" data-name="大蒜"><div class="t-body name">大蒜</div><div class="t-label-s merge-sub">1 头（约 10 瓣）</div><div class="t-label-s sub">今天吃什么 · 2 道菜谱 + 手动</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-merged" data-name="大蒜"><div class="t-body name">大蒜</div><div class="t-label-s merge-sub">1 头（约 10 瓣）</div><div class="t-label-s sub">11月2日菜单 · 2 道菜谱 + 手动</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
               <div class="section-header"><h2 class="t-title">调料</h2></div>
-              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="生抽" data-amount="3" data-unit="勺"><div class="t-body name">生抽</div><div class="t-label-s merge-sub">3勺</div><div class="t-label-s sub">今天吃什么 · 1 道菜谱</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
-              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="蚝油" data-amount="1" data-unit="勺"><div class="t-body name">蚝油</div><div class="t-label-s merge-sub">1勺</div><div class="t-label-s sub">今天吃什么 · 1 道菜谱</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="生抽" data-amount="3" data-unit="勺"><div class="t-body name">生抽</div><div class="t-label-s merge-sub">3勺</div><div class="t-label-s sub">11月2日菜单 · 1 道菜谱</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="蚝油" data-amount="1" data-unit="勺"><div class="t-body name">蚝油</div><div class="t-label-s merge-sub">1勺</div><div class="t-label-s sub">11月2日菜单 · 1 道菜谱</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
               <div class="section-header"><h2 class="t-title">其他</h2></div>
               <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="厨房纸" data-amount="1" data-unit="包"><div class="t-body name">厨房纸</div><div class="t-label-s merge-sub">1 包</div><div class="t-label-s sub">手动添加</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
               <div class="section-header"><h2 class="t-title">已购</h2></div>
@@ -1127,9 +1420,8 @@ body.chrome #stage{padding-top:80px}
 
             <div class="section-header"><h2 class="t-title">数据</h2></div>
             <div class="group">
-              <div class="row"><span class="t-body r-title">存储空间</span><span class="r-value">暂无媒体</span></div><div class="hair"></div>
-              <div class="row"><span class="t-body r-title">导出备份</span><span class="r-value">含图片与视频</span></div><div class="hair"></div>
-              <div class="row"><span class="t-body r-title">从备份恢复</span><span class="r-value">选择 .zip</span></div>
+              <div class="row tap" data-go="storage"><span class="t-body r-title">存储空间</span><span class="r-value">28.4 GB</span><span class="r-value">›</span></div><div class="hair"></div>
+              <div class="row tap" data-go="migrate"><span class="t-body r-title">数据迁移</span><span class="r-value">迁出 / 迁入</span><span class="r-value">›</span></div>
             </div>
 
             <div class="section-header"><h2 class="t-title">收录</h2></div>
@@ -1333,6 +1625,11 @@ body.chrome #stage{padding-top:80px}
         </section>
 
         <!-- ═══════════ Dialog 层 ═══════════ -->
+        <div class="dialog-wrap" data-dialog="confirm">
+          <div class="dialog"><h3 id="confirmTitle">确认</h3>
+            <p class="d-text" id="confirmText"></p>
+            <div class="d-actions"><button class="d-action tap" data-dialog="none">取消</button><button class="d-action danger tap" data-dialog="none" id="confirmOk">确认</button></div></div>
+        </div>
         <div class="dialog-wrap" data-dialog="delete">
           <div class="dialog"><h3>删除这道菜谱？</h3><p class="d-text">会同时删除已下载的图片和视频，无法恢复。</p>
             <div class="d-actions"><button class="d-action tap">取消</button><button class="d-action danger tap" data-go="recipes">删除</button></div></div>
@@ -1371,7 +1668,7 @@ body.chrome #stage{padding-top:80px}
         <div class="sheet-wrap" data-dialog="edit-item">
           <div class="sheet">
             <div class="grab"></div><h3>编辑采购项</h3>
-            <p class="note">只改这次采购，不会改菜谱里的食材。</p>
+            <p class="note">只改这次采购；保存后这一项与菜谱脱离。</p>
             <div class="ing-edit-row item-editor">
               <div class="field"><input id="editName"></div>
               <div class="field amount"><input id="editAmount"></div>
@@ -1388,7 +1685,7 @@ body.chrome #stage{padding-top:80px}
         <div class="sheet-wrap" data-dialog="edit-merged">
           <div class="sheet">
             <div class="grab"></div><h3>编辑「大蒜」</h3>
-            <p class="note">合并了 3 个来源，按来源逐条改；改动只影响这次采购。</p>
+            <p class="note">合并了 3 个来源，按来源逐条改；菜谱来源保存后与菜谱脱离。</p>
             <div class="src-row"><span class="s-name">孜然土豆牛肉</span><span class="s-amt">4 瓣</span><button class="src-edit tap" data-src-edit data-name="大蒜" data-amount="4" data-unit="瓣" aria-label="编辑来源"><svg class="ic"><use href="#i-edit"/></svg></button></div>
             <div class="src-row"><span class="s-name">港式牛腩煲</span><span class="s-amt">3 瓣</span><button class="src-edit tap" data-src-edit data-name="大蒜" data-amount="3" data-unit="瓣" aria-label="编辑来源"><svg class="ic"><use href="#i-edit"/></svg></button></div>
             <div class="src-row"><span class="s-name">手动添加</span><span class="s-amt">3 瓣</span><button class="src-edit tap" data-src-edit data-name="大蒜" data-amount="3" data-unit="瓣" aria-label="编辑来源"><svg class="ic"><use href="#i-edit"/></svg></button></div>
@@ -1431,6 +1728,8 @@ body.chrome #stage{padding-top:80px}
     <div class="gesture"><span></span></div>
 
     <!-- 全屏媒体查看器：覆盖整个设备（含系统栏区域） -->
+    <div id="snackbar" class="snackbar"><span id="snackText"></span><button id="snackAction" class="snack-action tap"></button></div>
+
     <div id="mediaOverlay" class="media-overlay">
       <div class="media-top">
         <button class="media-close tap" data-media-close aria-label="关闭"><svg class="ic"><use href="#i-close"/></svg></button>
@@ -1475,6 +1774,9 @@ body.chrome #stage{padding-top:80px}
   <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></symbol>
   <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></symbol>
   <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M6.99 11 3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></symbol>
 </svg>
 
 <script>
@@ -1491,6 +1793,7 @@ body.chrome #stage{padding-top:80px}
   const S = {
     screen: 'home', theme: 'light', device: 'phone', chrome: true,
     home: 'data', recipes: 'data', shopping: 'data', capture: 'idle', history: 'data',
+    search: 'idle', searchForce: null, migrate: 'hub',
     histY: 2026, histM: 10, histDay: '2026-11-02',
     tab: 'steps', dialog: null, media: null, platform: 'DOUYIN',
     timers: []
@@ -1499,6 +1802,10 @@ body.chrome #stage{padding-top:80px}
   const SCREEN_STATES = {
     home: ['data', 'empty'],
     history: ['data', 'empty'],
+    historyDetail: ['default'],
+    search: ['idle', 'results', 'empty'],
+    storage: ['default'],
+    migrate: ['hub', 'export', 'import', 'progress', 'done', 'failed'],
     recipes: ['data', 'empty'],
     recipe: ['steps', 'ingredients', 'original'],
     capture: ['idle', 'preparing', 'needsWebView', 'downloading', 'success', 'failed'],
@@ -1527,6 +1834,8 @@ body.chrome #stage{padding-top:80px}
     if (!v) return;
     if (S.screen === 'home') S.home = v === 'empty' ? 'empty' : 'data';
     else if (S.screen === 'history') S.history = v === 'empty' ? 'empty' : 'data';
+    else if (S.screen === 'search') { S.search = v; S.searchForce = v; }
+    else if (S.screen === 'migrate') S.migrate = v;
     else if (S.screen === 'recipes') S.recipes = v === 'empty' ? 'empty' : 'data';
     else if (S.screen === 'shopping') S.shopping = v === 'empty' ? 'empty' : 'data';
     else if (S.screen === 'capture') S.capture = v;
@@ -1557,6 +1866,12 @@ body.chrome #stage{padding-top:80px}
     if (sData) sData.style.display = S.shopping === 'empty' ? 'none' : 'block';
     if (sEmpty) sEmpty.style.display = S.shopping === 'empty' ? 'flex' : 'none';
 
+    if (S.screen === 'search') { renderSearch(S.searchForce); S.searchForce = null; }
+    ['hub', 'export', 'import', 'progress', 'done', 'failed'].forEach(k => {
+      const el = $('#migrate' + k.charAt(0).toUpperCase() + k.slice(1));
+      if (el) el.style.display = S.migrate === k ? 'block' : 'none';
+    });
+    renderMigrate();
     const hData = $('#historyData'), hEmpty = $('#historyEmpty');
     if (hData) hData.style.display = S.history === 'empty' ? 'none' : 'block';
     if (hEmpty) hEmpty.style.display = S.history === 'empty' ? 'flex' : 'none';
@@ -1728,7 +2043,7 @@ body.chrome #stage{padding-top:80px}
     $('#histCount').textContent = dishes.length ? dishes.length + ' 道' : '';
     $('#histList').innerHTML = dishes.map(d => {
       const p = PLATFORM[d.p] || PLATFORM.dy;
-      return '<button class="hist-row tap" data-go="recipe">' +
+      return '<button class="hist-row tap" data-go="historyDetail">' +
         '<div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>' +
         '<div class="h-body"><div class="t-body clamp2">' + d.t + '</div>' +
         '<div class="h-meta"><span class="badge ' + p[1] + ' compact"><i></i>' + p[0] + '</span>' +
@@ -1748,6 +2063,157 @@ body.chrome #stage{padding-top:80px}
     render();
   }
 
+  const SEARCH_DATA = [
+    { t: '比烧烤还好吃！直接香迷糊的孜然土豆牛肉', p: 'dy', n: '2 人份', k: '土豆 牛肉 孜然 西关焖烧男', reason: '食材：土豆' },
+    { t: '港式牛腩煲 | 暖乎乎巨好吃', p: 'xhs', n: '3 人份', k: '牛腩 煲 暖乎乎', reason: '食材：牛腩' },
+    { t: '快去做！！巨好吃！！巨下饭的土豆丝炒牛肉', p: 'xhs', n: '2 人份', k: '土豆 牛肉 下饭', reason: '食材：土豆' },
+    { t: '记住这些万能炒菜公式', p: 'bili', n: '2 人份', k: '炒菜 公式 王刚', reason: '作者：@美食作家王刚' }
+  ];
+
+  function renderSearch(force) {
+    const input = $('#searchInput');
+    if (!input) return;
+    if (force === 'idle') input.value = '';
+    if (force === 'results' && !input.value.trim()) input.value = '土豆';
+    if (force === 'empty' && !input.value.trim()) input.value = '蛋糕';
+    const q = input.value.trim();
+    const idle = $('#searchIdle'), res = $('#searchResults'), empty = $('#searchEmpty');
+    if (!q) { idle.style.display = 'block'; res.style.display = 'none'; empty.style.display = 'none'; return; }
+    const hits = SEARCH_DATA.filter(d => (d.t + ' ' + d.k).includes(q));
+    idle.style.display = 'none';
+    res.style.display = hits.length ? 'block' : 'none';
+    empty.style.display = hits.length ? 'none' : 'block';
+    $('#searchCount').textContent = '找到 ' + hits.length + ' 道';
+    $('#searchList').innerHTML = hits.map(d => {
+      const p = PLATFORM[d.p] || PLATFORM.dy;
+      return '<button class="hist-row tap" data-go="recipe">' +
+        '<div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>' +
+        '<div class="h-body"><div class="t-body clamp2">' + d.t + '</div>' +
+        '<div class="h-meta"><span class="badge ' + p[1] + ' compact"><i></i>' + p[0] + '</span>' +
+        '<span class="t-label-s sub">' + d.n + '</span></div>' +
+        '<div class="h-reason">' + d.reason + '</div></div></button>';
+    }).join('');
+  }
+
+  const searchInput = $('#searchInput');
+  if (searchInput) searchInput.addEventListener('input', () => {
+    S.search = searchInput.value.trim() ? 'results' : 'idle';
+    renderSearch();
+    renderStateSelect();
+  });
+
+  function renderMigrate() {
+    const src = S.migrateSource || 'export';
+    const t = $('#migrateProgressTitle');
+    if (t) t.textContent = src === 'import' ? '正在导入' : '正在打包';
+    const dt = $('#migrateDoneTitle'), dd = $('#migrateDoneText');
+    if (dt) dt.textContent = src === 'import' ? '导入完成' : '迁移包已生成';
+    if (dd) dd.textContent = src === 'import'
+      ? '128 道菜谱、842 个文件已恢复；3 项已跳过，0 项失败。'
+      : '15 个分卷，已完成 SHA-256 校验。把整个文件夹带到新设备。';
+    const meta = $('#migrateProgressMeta');
+    if (meta) meta.textContent = src === 'import'
+      ? '12.3 GB / 28.4 GB · 文件 218 / 842'
+      : '12.3 GB / 28.4 GB · 视频 218 / 842';
+  }
+
+  let migrateTimer = null;
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mstate]');
+    if (!b) return;
+    const from = S.migrate;
+    S.migrate = b.dataset.mstate;
+    if (S.migrate === 'progress') S.migrateSource = from;
+    render();
+    clearTimeout(migrateTimer);
+    if (S.migrate === 'progress') {
+      migrateTimer = setTimeout(() => {
+        if (S.migrate === 'progress') { S.migrate = 'done'; render(); }
+      }, 4200);
+    }
+  });
+
+  let confirmAction = null;
+  function askConfirm(title, text, okText, onOk) {
+    $('#confirmTitle').textContent = title;
+    $('#confirmText').textContent = text;
+    const ok = $('#confirmOk');
+    ok.textContent = okText || '确认';
+    confirmAction = onOk || null;
+    S.dialog = 'confirm';
+    render();
+  }
+  const confirmOk = $('#confirmOk');
+  if (confirmOk) confirmOk.addEventListener('click', () => {
+    const fn = confirmAction;
+    confirmAction = null;
+    if (fn) fn();
+  });
+
+  $$('.storage-clean').forEach(b => b.addEventListener('click', () => {
+    askConfirm('删除这个菜谱的图片和视频？', '文字、食材、步骤和备注会保留。', '删除媒体', () => {
+      const row = b.closest('.storage-row');
+      const size = row.querySelector('.s-size');
+      if (size) size.textContent = '0 B';
+      showSnack('已清理媒体');
+    });
+  }));
+  const storageDanger = $('.storage-danger');
+  if (storageDanger) storageDanger.addEventListener('click', () => {
+    askConfirm('清空全部数据？', '菜谱、媒体、备注、历史和采购清单都会删除，无法恢复。换机前请先迁移。', '清空', () => {
+      showSnack('已清空本机数据');
+    });
+  });
+  const clearDevice = $('[data-clear-device]');
+  if (clearDevice) clearDevice.addEventListener('click', () => {
+    askConfirm('清除本机数据？', '确认迁移包已在新设备导入成功后再清除。此操作无法恢复。', '清除', () => {
+      showSnack('已清除本机数据');
+    });
+  });
+
+  // Snackbar + 撤销
+  let snackTimer = null, snackAction = null;
+  function hideSnack() {
+    const el = $('#snackbar');
+    if (el) el.classList.remove('on');
+    snackAction = null;
+  }
+  function showSnack(text, actionText, onAction) {
+    const el = $('#snackbar');
+    if (!el) return;
+    $('#snackText').textContent = text;
+    const a = $('#snackAction');
+    if (actionText) {
+      a.style.display = 'block';
+      a.textContent = actionText;
+      snackAction = onAction;
+    } else {
+      a.style.display = 'none';
+      snackAction = null;
+    }
+    el.classList.add('on');
+    el.classList.toggle('with-fab', S.screen === 'recipes');
+    clearTimeout(snackTimer);
+    snackTimer = setTimeout(hideSnack, actionText ? 5000 : 3500);
+  }
+  const snackBtn = $('#snackAction');
+  if (snackBtn) snackBtn.addEventListener('click', () => {
+    const fn = snackAction;
+    hideSnack();
+    if (fn) fn();
+  });
+
+  function removeWithUndo(el, text, after) {
+    const parent = el.parentNode, next = el.nextSibling, clone = el.cloneNode(true);
+    clone.classList.remove('open');
+    el.remove();
+    if (after) after();
+    showSnack(text, '撤销', () => {
+      parent.insertBefore(clone, next);
+      if (after) after();
+    });
+  }
+
   function fmt(sec) {
     const m = Math.floor(sec / 60), s = sec % 60;
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
@@ -1761,6 +2227,8 @@ body.chrome #stage{padding-top:80px}
     let cur = 'default';
     if (S.screen === 'home') cur = S.home;
     else if (S.screen === 'history') cur = S.history;
+    else if (S.screen === 'search') cur = S.search;
+    else if (S.screen === 'migrate') cur = S.migrate;
     else if (S.screen === 'recipes') cur = S.recipes;
     else if (S.screen === 'shopping') cur = S.shopping;
     else if (S.screen === 'capture') cur = S.capture;
@@ -1845,8 +2313,7 @@ body.chrome #stage{padding-top:80px}
   }
 
   function removeTodayItem(item) {
-    item.remove();
-    updateTodayEmpty();
+    removeWithUndo(item, '已从今天吃什么移除', updateTodayEmpty);
   }
 
   document.addEventListener('pointerdown', (e) => {
@@ -1927,7 +2394,7 @@ body.chrome #stage{padding-top:80px}
       row.classList.toggle('checked', check.classList.contains('on'));
       return;
     }
-    if (e.target.closest('.del')) { row.remove(); return; }
+    if (e.target.closest('.del')) { removeWithUndo(row, '已删除采购项'); return; }
     if (e.target.closest('.chev')) {
       const body = row.querySelector('.shop-body');
       if (body) body.click();
