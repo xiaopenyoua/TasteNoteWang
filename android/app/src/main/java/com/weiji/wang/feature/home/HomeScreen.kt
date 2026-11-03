@@ -197,7 +197,7 @@ private fun MenuRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(92.dp)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(if (revealed) MenuCardShape else RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surface)
                 .clickable(onClick = onClick)
                 .padding(10.dp),
@@ -274,6 +274,14 @@ private fun MenuEmptyCard(onGoRecipes: () -> Unit) {
         )
     }
 }
+
+// 右侧不圆角：左滑后与删除按钮拼成一条，外层容器负责圆外轮廓。
+private val MenuCardShape = RoundedCornerShape(
+    topStart = 16.dp,
+    topEnd = 0.dp,
+    bottomEnd = 0.dp,
+    bottomStart = 16.dp,
+)
 
 private val weekdays = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
 

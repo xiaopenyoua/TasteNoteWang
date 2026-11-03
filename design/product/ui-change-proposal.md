@@ -328,7 +328,8 @@ related:
 - 底部：状态行（绿点「已检测到登录信息」/ 橙点「未检测到」）+「清除」+「保存并返回」；只有检测到**认证 Cookie** 才启用保存。
 - 更多面板：入口切换、页面版本（移动/桌面）、缩放 −/＋、清除本平台登录、平台提示。
 - 登录检测：`onPageFinished` 后每 1s 读取 Cookie，连续 2 次命中认证键才显示「已检测到」；12s 未命中提示；30s 错误态；离开停止轮询。
-- 拦截 `intent://`、`snssdk1128://`、`xhsdiscover://`、`bilibili://` 等 App scheme；拦截时提示「页面想打开 App，已拦截，请使用页面内登录入口」，不离开 WebView。
+- 拦截 `intent://`、`snssdk1128://`、`xhsdiscover://`、`bilibili://` 等 App scheme；`intent://` 里带 `S.browser_fallback_url` 时直接跳到该网页，其余情况提示「页面想跳转到 App，已拦下；请用页面内的登录入口」，不离开 WebView。
+- WebView 开宽视口（`useWideViewPort` + `loadWithOverviewMode`），否则抖音只渲染出一个空壳页；页尾再补一条 `.login-wrap` 的真实视口高度兜底，避免 B 站登录页的「登录」按钮压住用户协议。
 - 不自动勾选用户协议、不自动填账号密码、不调用原生登录接口、不做签名破解。
 
 **平台配置矩阵（推荐）**

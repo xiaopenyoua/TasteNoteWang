@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -435,7 +434,6 @@ private fun RecipeCoverHeader(
             onClick = { nav.popBackStack() },
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .statusBarsPadding()
                 .padding(8.dp),
             size = 40.dp,
             iconSize = 22.dp,
@@ -444,7 +442,6 @@ private fun RecipeCoverHeader(
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .statusBarsPadding()
                 .padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {

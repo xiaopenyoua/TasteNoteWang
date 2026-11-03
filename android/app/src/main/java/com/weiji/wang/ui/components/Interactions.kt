@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -74,30 +75,33 @@ fun SwipeToRevealDelete(
     val deleteDragPx = with(density) { DeleteDrag.toPx() }
     val offset = remember { Animatable(0f) }
     var extraDrag by remember { mutableFloatStateOf(0f) }
+    // 收起时不画删除底：卡片和底是同色圆角，叠在一起会露出一像素红边。
+    val showDelete by remember { derivedStateOf { offset.value < -0.5f } }
 
     LaunchedEffect(revealed) {
         offset.animateTo(if (revealed) -revealPx else 0f, tween(durationMillis = 180))
     }
 
     Box(modifier = modifier.clip(shape)) {
-        Row(
-            modifier = Modifier.matchParentSize(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(RevealWidth)
-                    .clip(shape)
-                    .background(MaterialTheme.colorScheme.error)
-                    .clickable(enabled = revealed) { onDelete() },
-                contentAlignment = Alignment.Center,
+        if (showDelete) {
+            Row(
+                modifier = Modifier.matchParentSize(),
+                horizontalArrangement = Arrangement.End,
             ) {
-                Text(
-                    text = "删除",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onError,
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(RevealWidth)
+                        .background(MaterialTheme.colorScheme.error)
+                        .clickable(enabled = revealed) { onDelete() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "删除",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onError,
+                    )
+                }
             }
         }
 

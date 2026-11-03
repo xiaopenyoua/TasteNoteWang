@@ -2,6 +2,7 @@ package com.weiji.wang.feature.login
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -182,6 +183,9 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
                     settings.domStorageEnabled = true
                     settings.databaseEnabled = true
                     settings.userAgentString = target.userAgent
+                    // 平台登录页都按桌面视口写样式；关掉宽视口时抖音会只渲染出空页。
+                    settings.useWideViewPort = true
+                    settings.loadWithOverviewMode = true
                     settings.setSupportZoom(true)
                     settings.builtInZoomControls = true
                     settings.displayZoomControls = false
@@ -192,23 +196,26 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             pageLoaded = true
+                            view?.evaluateJavascript(viewportHeightPatch, null)
                         }
 
                         override fun shouldOverrideUrlLoading(
                             view: WebView?,
                             request: WebResourceRequest?,
                         ): Boolean {
-                            val scheme = request?.url?.scheme?.lowercase().orEmpty()
-                            return if (scheme.isNotEmpty() && scheme !in browserSchemes) {
-                                Toast.makeText(
-                                    context,
-                                    "页面想打开 App，已拦截，请使用页面内登录入口",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                                true
-                            } else {
-                                false
+                            val url = request?.url ?: return false
+                            val scheme = url.scheme?.lowercase().orEmpty()
+                            if (scheme.isEmpty() || scheme in browserSchemes) return false
+                            intentFallback(url)?.let { fallback ->
+                                view?.loadUrl(fallback)
+                                return true
                             }
+                            Toast.makeText(
+                                context,
+                                "页面想跳转到 App，已拦下；请用页面内的登录入口",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                            return true
                         }
                     }
                     loadUrl(target.startUrl)
@@ -316,6 +323,35 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
 }
 
 private val browserSchemes = setOf("http", "https", "about", "data", "javascript", "file", "blob")
+
+/**
+ * WebView 里部分内核会把 vh 解析成 0，B 站登录页的 `.login-wrap` 因此塌成内容高度，
+ * 「登录」按钮压住用户协议。这里用真实视口高度兜底：vh 正常时结果与 100vh 一致。
+ */
+private const val viewportHeightPatch = """
+(function () {
+  var h = window.innerHeight;
+  var style = document.getElementById('weiji-vh');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'weiji-vh';
+    document.documentElement.appendChild(style);
+  }
+  style.textContent = '.login-wrap{min-height:' + h + 'px !important}';
+})();
+"""
+
+/** intent:// 里带的 S.browser_fallback_url：没装 App 时回到网页，而不是停在空白页。 */
+private fun intentFallback(url: Uri): String? {
+    val fragment = url.fragment ?: return null
+    val marker = "S.browser_fallback_url="
+    val start = fragment.indexOf(marker)
+    if (start < 0) return null
+    val value = fragment.substring(start + marker.length).substringBefore(';')
+    return runCatching { Uri.decode(value) }
+        .getOrNull()
+        ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+}
 
 private fun readCookie(target: LoginTarget): String =
     target.cookieUrls.mapNotNull { url ->
