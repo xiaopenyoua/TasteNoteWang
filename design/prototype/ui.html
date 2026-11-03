@@ -782,7 +782,7 @@ body.chrome #stage{padding-top:80px}
         <section class="screen-view" data-screen="shopping">
           <div class="shopping-page">
             <div class="page-header">
-              <div class="h-row"><h1 class="t-display">采购</h1><button class="add-circle tap" aria-label="添加"><svg class="ic"><use href="#i-add"/></svg></button></div>
+              <div class="h-row"><h1 class="t-display">采购</h1><button class="add-circle tap" data-dialog="add-item" aria-label="添加"><svg class="ic"><use href="#i-add"/></svg></button></div>
               <p class="t-body-m sub">还需买 4 项 · 已买 2 项</p>
             </div>
 
@@ -930,6 +930,11 @@ body.chrome #stage{padding-top:80px}
             <div class="d-row"><span class="grow t-body">份量</span><button class="d-step tap">−</button><span>2 人</span><button class="d-step tap">+</button></div>
             <textarea class="notes" placeholder="这次哪里不一样？"></textarea>
             <div class="d-actions"><button class="d-action tap">跳过</button><button class="d-action tap" data-go="recipe">保存</button></div></div>
+        </div>
+        <div class="dialog-wrap" data-dialog="add-item">
+          <div class="dialog"><h3>加一项</h3>
+            <textarea class="notes" style="min-height:56px" placeholder="名称，例如 牛腩 500g"></textarea>
+            <div class="d-actions"><button class="d-action tap" data-dialog="none">取消</button><button class="d-action tap" data-dialog="none">添加</button></div></div>
         </div>
         <div class="dialog-wrap" data-dialog="delete">
           <div class="dialog"><h3>删除这道菜谱？</h3><p class="d-text">会同时删除已下载的图片和视频，无法恢复。</p>
@@ -1176,10 +1181,25 @@ body.chrome #stage{padding-top:80px}
   document.addEventListener('click', (e) => {
     const t = e.target.closest('[data-go],[data-tab],[data-dialog],[data-timer]');
     if (!t) return;
+    if (t.dataset.dialog === 'none') { S.dialog = null; render(); return; }
     if (t.dataset.go) { go(t.dataset.go); return; }
     if (t.dataset.tab) { S.tab = t.dataset.tab; render(); return; }
     if (t.dataset.dialog) { S.dialog = t.dataset.dialog; render(); return; }
     if (t.dataset.timer) { addTimer(parseInt(t.dataset.timer, 10)); return; }
+  });
+
+  // 采购行：勾选 / 删除（对应 ShoppingScreen 行交互）
+  document.addEventListener('click', (e) => {
+    const row = e.target.closest('.shop-row');
+    if (!row) return;
+    const check = e.target.closest('.check');
+    if (check) {
+      if (!check.querySelector('svg')) check.innerHTML = '<svg class="ic"><use href="#i-check"/></svg>';
+      check.classList.toggle('on');
+      row.classList.toggle('checked', check.classList.contains('on'));
+      return;
+    }
+    if (e.target.closest('.del')) row.remove();
   });
 
   // 点击对话框外关闭（对应 AlertDialog.onDismissRequest）

@@ -167,9 +167,9 @@ body.chrome #stage{padding-top:80px}
 .rail-item.on .rail-ind{background:var(--nav-selected)}
 .rail-item.on{color:var(--on)}
 .rail .fab{margin-top:12px}
-.fab{width:56px;height:56px;border-radius:50%;background:var(--primary);color:#000;
+.fab{width:48px;height:48px;border-radius:50%;background:var(--primary);color:#000;
   display:flex;align-items:center;justify-content:center;box-shadow:none}
-.fab .ic{width:24px;height:24px}
+.fab .ic{width:20px;height:20px}
 #fab{position:absolute;right:16px;bottom:96px;z-index:6}
 
 /* ── 首页 ── */
@@ -357,6 +357,20 @@ body.chrome #stage{padding-top:80px}
 .shop-row .del{width:22px;height:22px;color:var(--tertiary)}
 .shop-actions{display:flex;gap:10px;padding:16px 16px 0}
 .shop-actions .btn-secondary{flex:1}
+.shop-row .chev{width:16px;height:16px;color:var(--on-var);opacity:.6;flex:none}
+.item-editor .field{background:var(--surface);border-radius:12px}
+.item-editor .field input{padding:12px 10px;font-size:15px}
+.editor-hint{font-size:11px;line-height:14px;color:var(--on-var);padding:8px 2px 0}
+.sheet-actions{display:flex;gap:10px;margin-top:12px}
+.sheet-actions .btn{flex:1.4}
+.sheet-actions .btn-secondary{flex:1;height:50px}
+.src-row{display:flex;align-items:center;gap:10px;min-height:48px;border-top:.5px solid var(--outline-variant)}
+.src-row .s-name{flex:1;font-size:15px;line-height:22px}
+.src-row .s-amt{font-size:13px;line-height:18px;color:var(--on-var)}
+.src-edit{width:40px;height:40px;display:flex;align-items:center;justify-content:center;color:var(--primary);flex:none}
+.src-edit .ic{width:18px;height:18px}
+.merge-preview{margin-top:12px;padding:12px;border-radius:12px;background:var(--variant);
+  font-size:13px;line-height:18px;color:var(--on-var)}
 
 /* ── 设置 / 编辑 ── */
 .settings-page,.edit-page{padding-bottom:96px}
@@ -648,30 +662,51 @@ body.chrome #stage{padding-top:80px}
 .login-qr .qr-refresh{font-size:13px;line-height:18px;font-weight:600;color:var(--primary);padding:4px 0}
 .login-qr .qr-method{width:220px;margin-top:2px}
 
-.today-card{width:264px;flex:0 0 264px;background:var(--surface);border-radius:20px;overflow:hidden;
-  position:relative;text-align:left}
-.today-card .cover{height:148px;border-radius:20px 20px 0 0}
-.today-card .remove{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;
-  background:var(--surface);opacity:.86;display:flex;align-items:center;justify-content:center;color:var(--on-var)}
-.today-card .remove .ic{width:16px;height:16px}
-.today-add{width:264px;flex:0 0 264px;min-height:230px;border:1px dashed var(--outline);border-radius:20px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--primary);
-  font-size:15px;line-height:22px;font-weight:600}
-.today-add .ic{width:28px;height:28px}
-.today-empty-box{background:var(--surface);border-radius:20px;padding:24px;margin:0 16px 8px;
-  display:flex;align-items:center;gap:16px}
-.today-empty-box .ic{width:34px;height:34px;color:var(--on-var)}
-.pick-row{display:flex;align-items:center;gap:12px;min-height:56px;border-top:.5px solid var(--outline-variant)}
-.pick-row .pick-body{flex:1;min-width:0}
-.pick-check{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--outline);
-  display:flex;align-items:center;justify-content:center;flex:none}
-.pick-check .ic{width:14px;height:14px;color:#fff;display:none}
-.pick-check.on{background:var(--tertiary);border-color:var(--tertiary)}
-.pick-check.on .ic{display:block}
+.today-list{display:flex;flex-direction:column;gap:8px;padding:0 16px 8px}
+.today-item{position:relative;border-radius:16px;overflow:hidden;background:var(--surface)}
+.today-del{position:absolute;right:0;top:0;bottom:0;width:88px;background:var(--error);color:#fff;border-radius:0 16px 16px 0;
+  font-size:15px;line-height:20px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.today-card{position:relative;z-index:1;width:100%;display:flex;align-items:center;gap:12px;
+  background:var(--surface);border-radius:16px;padding:10px;text-align:left;
+  transition:transform 220ms cubic-bezier(.4,0,.2,1);touch-action:pan-y}
+.today-item.open .today-card{transform:translateX(-88px)}
+.today-card .t-cover{width:72px;height:72px;border-radius:12px;flex:none}
+.today-card .t-body{flex:1;min-width:0;padding:2px 0}
+.today-card .t-body .title{min-height:44px}
+.today-hint{font-size:11px;line-height:14px;color:var(--on-var);padding:4px 2px 0}
+.today-empty-box{background:var(--surface);border-radius:16px;padding:20px;margin:0 16px;
+  display:flex;align-items:center;gap:14px}
+.today-empty-box .ic{width:30px;height:30px;color:var(--on-var);flex:none}
 .menu-item{display:flex;align-items:center;gap:12px;min-height:52px;font-size:17px;line-height:22px;
   border-top:.5px solid var(--outline-variant)}
 .menu-item .ic{width:20px;height:20px;color:var(--on-var)}
 .menu-item.danger{color:var(--error)}
+
+/* ── 吃过的菜（历史） ── */
+.history-page{padding-bottom:96px}
+.cal-card{background:var(--surface);border-radius:16px;margin:4px 16px 8px;padding:10px 12px 14px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;padding:0 0 6px}
+.cal-head .m{font-size:17px;line-height:22px;font-weight:600}
+.cal-nav{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:22px;line-height:1;color:var(--on)}
+.cal-week{display:grid;grid-template-columns:repeat(7,1fr);padding:2px 0 4px}
+.cal-week span{text-align:center;font-size:11px;line-height:14px;font-weight:500;color:var(--on-var)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-day{height:40px;border-radius:12px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;font-size:15px;line-height:20px;font-weight:400;color:var(--on)}
+.cal-day.out{color:var(--on-var);opacity:.45}
+.cal-day .dot{width:5px;height:5px;border-radius:50%;background:var(--primary)}
+.cal-day.out .dot{background:var(--on-var);opacity:.6}
+.cal-day.today{box-shadow:inset 0 0 0 1.5px var(--primary)}
+.cal-day.on{background:var(--primary);color:#000;font-weight:600}
+.cal-day.on .dot{background:#000;opacity:.55}
+.hist-row{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:14px;
+  width:calc(100% - 32px);padding:10px 12px;margin:2px 16px;text-align:left}
+.hist-row .cover{width:52px;height:52px;border-radius:10px;flex:none}
+.hist-row .cover .ic{width:22px;height:22px}
+.hist-row .h-body{flex:1;min-width:0}
+.hist-row .h-meta{display:flex;align-items:center;gap:6px;margin-top:3px}
+.hist-empty{padding:28px 16px;text-align:center;font-size:15px;line-height:22px;color:var(--on-var)}
 
 /* 手机/平板适配 */
 .device.tablet .page-header{padding-left:16px;padding-right:16px}
@@ -683,7 +718,7 @@ body.chrome #stage{padding-top:80px}
 <div id="toolbar">
   <div class="brand">味记・王 · UI 变更提案（待确认）</div>
   <label>页面 <select id="selScreen">
-    <option value="home">今天</option><option value="recipes">菜谱</option>
+    <option value="home">今天</option><option value="history">吃过的菜</option><option value="recipes">菜谱</option>
     <option value="recipe">详情</option>
     <option value="capture">收录</option><option value="shopping">采购</option>
     <option value="settings">我的</option><option value="edit">编辑</option>
@@ -724,7 +759,9 @@ body.chrome #stage{padding-top:80px}
         <!-- ═══════════ 今天 ═══════════ -->
         <section class="screen-view active" data-screen="home">
           <div class="page-header">
-            <div class="h-row"><h1 class="t-display">今天</h1></div>
+            <div class="h-row"><h1 class="t-display">今天</h1>
+              <button class="add-circle tap" data-go="history" aria-label="吃过的菜"><svg class="ic"><use href="#i-calendar"/></svg></button>
+            </div>
             <p class="t-body-m sub">11月2日 周一 · 午饭吃点什么？</p>
           </div>
 
@@ -739,46 +776,76 @@ body.chrome #stage{padding-top:80px}
           </div>
 
           <div id="homeData" class="home-data">
-            <div class="section-header"><h2 class="t-title">今天吃什么</h2><button class="link tap" data-dialog="pick-recipes">从菜谱选择</button></div>
-            <div class="hscroll">
-              <div class="today-card">
-                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
-                <button class="remove tap" data-dialog="remove-today" aria-label="从今天吃什么移除"><svg class="ic"><use href="#i-close"/></svg></button>
-                <div class="s-body">
-                  <div class="title t-title-m clamp2">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</div>
-                  <div class="s-meta"><span class="badge dy compact"><i></i>抖音</span><span class="t-label-m sub">2 人份</span><span class="spacer"></span><span class="t-label-s hint">已加入采购</span></div>
-                </div>
+            <div class="section-header"><h2 class="t-title">今天吃什么</h2></div>
+            <div id="todayList" class="today-list">
+              <div class="today-item" data-today-item>
+                <button class="today-del tap" data-today-delete aria-label="从今天吃什么移除">删除</button>
+                <button class="today-card tap" data-go="recipe">
+                  <div class="cover t-cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                  <div class="t-body">
+                    <div class="title t-title-m clamp2">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</div>
+                    <div class="s-meta"><span class="badge dy compact"><i></i>抖音</span><span class="t-label-m sub">2 人份</span><span class="spacer"></span><span class="t-label-s hint">已加入采购</span></div>
+                  </div>
+                </button>
               </div>
-              <div class="today-card">
-                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
-                <button class="remove tap" data-dialog="remove-today" aria-label="从今天吃什么移除"><svg class="ic"><use href="#i-close"/></svg></button>
-                <div class="s-body">
-                  <div class="title t-title-m clamp2">港式牛腩煲 | 暖乎乎巨好吃</div>
-                  <div class="s-meta"><span class="badge xhs compact"><i></i>小红书</span><span class="t-label-m sub">3 人份</span><span class="spacer"></span><span class="t-label-s hint">已加入采购</span></div>
-                </div>
+              <div class="today-item" data-today-item>
+                <button class="today-del tap" data-today-delete aria-label="从今天吃什么移除">删除</button>
+                <button class="today-card tap" data-go="recipe">
+                  <div class="cover t-cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
+                  <div class="t-body">
+                    <div class="title t-title-m clamp2">港式牛腩煲 | 暖乎乎巨好吃</div>
+                    <div class="s-meta"><span class="badge xhs compact"><i></i>小红书</span><span class="t-label-m sub">3 人份</span><span class="spacer"></span><span class="t-label-s hint">已加入采购</span></div>
+                  </div>
+                </button>
               </div>
-              <button class="today-add tap" data-dialog="pick-recipes">
-                <svg class="ic"><use href="#i-add"/></svg><span>从菜谱选择</span>
-              </button>
+              <p class="today-hint">左滑卡片可移除；移除会减去这道菜的采购食材，手动项保留。</p>
             </div>
 
-            <div class="section-header"><h2 class="t-title">最近做过</h2></div>
-            <div class="hscroll">
-              <button class="recent-card tap" data-go="recipe">
-                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
-                <div class="r-body"><div class="t-body">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</div><div class="t-label-s sub">3 小时前</div></div>
-              </button>
-              <button class="recent-card tap" data-go="recipe">
-                <div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>
-                <div class="r-body"><div class="t-body">港式牛腩煲 | 暖乎乎巨好吃</div><div class="t-label-s sub">3 天前</div></div>
-              </button>
+            <div id="todayEmptyBox" class="today-empty-box" style="display:none">
+              <svg class="ic"><use href="#i-bowl"/></svg>
+              <div style="flex:1;min-width:0">
+                <div class="t-title-m">还没有安排今天的菜</div>
+                <div class="t-label-s sub" style="margin-top:2px">在菜谱详情或长按菜谱，点「今晚做这道」</div>
+              </div>
+              <button class="link tap" data-go="recipes">去菜谱</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══════════ 吃过的菜（历史） ═══════════ -->
+        <section class="screen-view" data-screen="history">
+          <div class="history-page">
+            <div class="page-header">
+              <div class="h-row">
+                <button class="add-circle tap" data-go="home" aria-label="返回"><svg class="ic"><use href="#i-back"/></svg></button>
+                <h1 class="t-display" style="padding-left:4px">吃过的菜</h1>
+              </div>
+              <p class="t-body-m sub">按天回看每天的菜单</p>
             </div>
 
-            <div class="section-header"><h2 class="t-title">快速开始</h2></div>
-            <div class="quick-row">
-              <button class="quick tap" data-go="capture">收录链接</button>
-              <button class="quick tap" data-go="edit">手动创建</button>
-              <button class="quick tap" data-go="shopping">采购清单</button>
+            <div id="historyData">
+              <div class="cal-card">
+                <div class="cal-head">
+                  <button class="cal-nav tap" data-cal-nav="-1" aria-label="上个月">‹</button>
+                  <span class="m" id="calMonth">2026年11月</span>
+                  <button class="cal-nav tap" data-cal-nav="1" aria-label="下个月">›</button>
+                </div>
+                <div class="cal-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+                <div class="cal-grid" id="calGrid"></div>
+              </div>
+
+              <div class="section-header"><h2 class="t-title" id="histTitle">11月2日 · 周一</h2><span class="t-label-m sub" id="histCount">2 道</span></div>
+              <div id="histList"></div>
+              <div class="hist-empty" id="histDayEmpty" style="display:none">这天没有记录</div>
+            </div>
+
+            <div id="historyEmpty" class="empty" style="display:none;height:440px">
+              <div class="empty-inner">
+                <div class="empty-circle"><svg class="ic"><use href="#i-calendar"/></svg></div>
+                <h2 class="t-h2">还没有吃过的菜</h2>
+                <p class="t-body-m sub">在「今天吃什么」里选几道菜，之后这里会按天留下记录。</p>
+                <button class="btn btn-primary tap" data-go="home">去安排今天</button>
+              </div>
             </div>
           </div>
         </section>
@@ -1017,7 +1084,7 @@ body.chrome #stage{padding-top:80px}
         <section class="screen-view" data-screen="shopping">
           <div class="shopping-page">
             <div class="page-header">
-              <div class="h-row"><h1 class="t-display">采购</h1><button class="add-circle tap" aria-label="添加"><svg class="ic"><use href="#i-add"/></svg></button></div>
+              <div class="h-row"><h1 class="t-display">采购</h1><button class="add-circle tap" data-dialog="add-item" aria-label="添加"><svg class="ic"><use href="#i-add"/></svg></button></div>
               <p class="t-body-m sub">还需买 6 项 · 已买 1 项 · 已合并 3 条</p>
             </div>
 
@@ -1028,17 +1095,17 @@ body.chrome #stage{padding-top:80px}
 
             <div id="shopData">
               <div class="section-header"><h2 class="t-title">肉禽水产</h2></div>
-              <div class="shop-row"><span class="check"></span><div class="shop-body"><div class="t-body name">牛腩</div><div class="t-label-s merge-sub">500克</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="牛腩" data-amount="500" data-unit="克"><div class="t-body name">牛腩</div><div class="t-label-s merge-sub">500克</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
               <div class="section-header"><h2 class="t-title">蔬菜</h2></div>
-              <div class="shop-row"><span class="check"></span><div class="shop-body"><div class="t-body name">土豆</div><div class="t-label-s merge-sub">300克</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
-              <div class="shop-row"><span class="check"></span><div class="shop-body"><div class="t-body name">大蒜</div><div class="t-label-s merge-sub">1 头（约 10 瓣）</div><div class="t-label-s sub">今天吃什么 · 2 道菜谱 + 手动</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="土豆" data-amount="300" data-unit="克"><div class="t-body name">土豆</div><div class="t-label-s merge-sub">300克</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-merged" data-name="大蒜"><div class="t-body name">大蒜</div><div class="t-label-s merge-sub">1 头（约 10 瓣）</div><div class="t-label-s sub">今天吃什么 · 2 道菜谱 + 手动</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
               <div class="section-header"><h2 class="t-title">调料</h2></div>
-              <div class="shop-row"><span class="check"></span><div class="shop-body"><div class="t-body name">生抽</div><div class="t-label-s merge-sub">3勺</div><div class="t-label-s sub">今天吃什么 · 2 道菜谱</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
-              <div class="shop-row"><span class="check"></span><div class="shop-body"><div class="t-body name">蚝油</div><div class="t-label-s merge-sub">1勺</div><div class="t-label-s sub">今天吃什么 · 1 道菜谱</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="生抽" data-amount="3" data-unit="勺"><div class="t-body name">生抽</div><div class="t-label-s merge-sub">3勺</div><div class="t-label-s sub">今天吃什么 · 1 道菜谱</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="蚝油" data-amount="1" data-unit="勺"><div class="t-body name">蚝油</div><div class="t-label-s merge-sub">1勺</div><div class="t-label-s sub">今天吃什么 · 1 道菜谱</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
               <div class="section-header"><h2 class="t-title">其他</h2></div>
-              <div class="shop-row"><span class="check"></span><div class="shop-body"><div class="t-body name">厨房纸</div><div class="t-label-s merge-sub">1 包</div><div class="t-label-s sub">手动添加</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row"><span class="check"></span><div class="shop-body tap" data-edit-item="edit-item" data-name="厨房纸" data-amount="1" data-unit="包"><div class="t-body name">厨房纸</div><div class="t-label-s merge-sub">1 包</div><div class="t-label-s sub">手动添加</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
               <div class="section-header"><h2 class="t-title">已购</h2></div>
-              <div class="shop-row checked"><span class="check on"><svg class="ic"><use href="#i-check"/></svg></span><div class="shop-body"><div class="t-body name">小葱</div><div class="t-label-s merge-sub">15克</div></div><svg class="ic del"><use href="#i-delete"/></svg></div>
+              <div class="shop-row checked"><span class="check on"><svg class="ic"><use href="#i-check"/></svg></span><div class="shop-body tap" data-edit-item="edit-item" data-name="小葱" data-amount="15" data-unit="克"><div class="t-body name">小葱</div><div class="t-label-s merge-sub">15克</div></div><svg class="ic chev"><use href="#i-chevron"/></svg><svg class="ic del"><use href="#i-delete"/></svg></div>
               <div class="shop-actions"><button class="btn-secondary tap">清除已购</button><button class="btn-secondary tap">清空清单</button></div>
             </div>
 
@@ -1284,22 +1351,55 @@ body.chrome #stage{padding-top:80px}
             <div class="d-actions"><button class="d-action tap">取消</button><button class="d-action tap" data-go="recipe">保存</button></div></div>
         </div>
 
-        <div class="sheet-wrap" data-dialog="pick-recipes">
+        <div class="sheet-wrap" data-dialog="add-item">
           <div class="sheet">
-            <div class="grab"></div><h3>从菜谱选择</h3>
-            <p class="note">选中的菜会加入今天吃什么，并把食材加入采购清单；取消选中会从今天菜单移除并减去对应食材。</p>
-            <div data-pick class="pick-row"><span class="pick-check on"><svg class="ic"><use href="#i-check"/></svg></span><div class="pick-body"><div class="t-body">比烧烤还好吃！直接香迷糊的孜然土豆牛肉</div><div class="t-label-s sub">抖音 · 6 项食材 · 已加入</div></div></div>
-            <div data-pick class="pick-row"><span class="pick-check on"><svg class="ic"><use href="#i-check"/></svg></span><div class="pick-body"><div class="t-body">港式牛腩煲 | 暖乎乎巨好吃</div><div class="t-label-s sub">小红书 · 5 项食材 · 已加入</div></div></div>
-            <div data-pick class="pick-row"><span class="pick-check"><svg class="ic"><use href="#i-check"/></svg></span><div class="pick-body"><div class="t-body">快去做！！巨好吃！！土豆丝炒牛肉</div><div class="t-label-s sub">小红书 · 6 项食材</div></div></div>
-            <div data-pick class="pick-row"><span class="pick-check"><svg class="ic"><use href="#i-check"/></svg></span><div class="pick-body"><div class="t-body">记住这些万能炒菜公式</div><div class="t-label-s sub">B站 · 暂无食材</div></div></div>
-            <button class="btn btn-primary tap" data-dialog="none" style="margin-top:12px">完成</button>
+            <div class="grab"></div><h3>添加采购项</h3>
+            <p class="note">食材与规格分开填；只加入采购清单，不改任何菜谱。</p>
+            <div class="ing-edit-row item-editor">
+              <div class="field"><input id="addName" placeholder="食材，例如 牛腩"></div>
+              <div class="field amount"><input id="addAmount" placeholder="500"></div>
+              <div class="field unit"><input id="addUnit" placeholder="克"></div>
+            </div>
+            <p class="editor-hint">数量可写 2、2-3、适量；单位可空，模糊量时单位不生效。</p>
+            <div class="sheet-actions">
+              <button class="btn-secondary tap" data-dialog="none">取消</button>
+              <button class="btn btn-primary tap" data-dialog="none">添加</button>
+            </div>
           </div>
         </div>
-        <div class="dialog-wrap" data-dialog="remove-today">
-          <div class="dialog"><h3>从今天吃什么移除？</h3>
-            <p class="d-text">采购清单会减去这道菜的食材；手动添加的采购项保留，数量保底为 0。</p>
-            <div class="d-actions"><button class="d-action tap">取消</button><button class="d-action danger tap" data-dialog="none">移除</button></div></div>
+
+        <div class="sheet-wrap" data-dialog="edit-item">
+          <div class="sheet">
+            <div class="grab"></div><h3>编辑采购项</h3>
+            <p class="note">只改这次采购，不会改菜谱里的食材。</p>
+            <div class="ing-edit-row item-editor">
+              <div class="field"><input id="editName"></div>
+              <div class="field amount"><input id="editAmount"></div>
+              <div class="field unit"><input id="editUnit"></div>
+            </div>
+            <p class="editor-hint">数量可写 2、2-3、适量；单位可空，模糊量时单位不生效。</p>
+            <div class="sheet-actions">
+              <button class="btn-secondary tap" data-dialog="none">取消</button>
+              <button class="btn btn-primary tap" data-dialog="none">保存</button>
+            </div>
+          </div>
         </div>
+
+        <div class="sheet-wrap" data-dialog="edit-merged">
+          <div class="sheet">
+            <div class="grab"></div><h3>编辑「大蒜」</h3>
+            <p class="note">合并了 3 个来源，按来源逐条改；改动只影响这次采购。</p>
+            <div class="src-row"><span class="s-name">孜然土豆牛肉</span><span class="s-amt">4 瓣</span><button class="src-edit tap" data-src-edit data-name="大蒜" data-amount="4" data-unit="瓣" aria-label="编辑来源"><svg class="ic"><use href="#i-edit"/></svg></button></div>
+            <div class="src-row"><span class="s-name">港式牛腩煲</span><span class="s-amt">3 瓣</span><button class="src-edit tap" data-src-edit data-name="大蒜" data-amount="3" data-unit="瓣" aria-label="编辑来源"><svg class="ic"><use href="#i-edit"/></svg></button></div>
+            <div class="src-row"><span class="s-name">手动添加</span><span class="s-amt">3 瓣</span><button class="src-edit tap" data-src-edit data-name="大蒜" data-amount="3" data-unit="瓣" aria-label="编辑来源"><svg class="ic"><use href="#i-edit"/></svg></button></div>
+            <div class="merge-preview">合并显示 1 头（约 10 瓣）</div>
+            <div class="sheet-actions">
+              <button class="btn-secondary tap" data-dialog="none">取消</button>
+              <button class="btn btn-primary tap" data-dialog="none">完成</button>
+            </div>
+          </div>
+        </div>
+
         <div class="sheet-wrap" data-dialog="recipe-menu">
           <div class="sheet">
             <div class="grab"></div><h3>比烧烤还好吃！直接香迷糊的孜然土豆牛肉</h3>
@@ -1373,6 +1473,8 @@ body.chrome #stage{padding-top:80px}
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
   <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></symbol>
 </svg>
 
 <script>
@@ -1388,13 +1490,15 @@ body.chrome #stage{padding-top:80px}
 
   const S = {
     screen: 'home', theme: 'light', device: 'phone', chrome: true,
-    home: 'data', recipes: 'data', shopping: 'data', capture: 'idle',
+    home: 'data', recipes: 'data', shopping: 'data', capture: 'idle', history: 'data',
+    histY: 2026, histM: 10, histDay: '2026-11-02',
     tab: 'steps', dialog: null, media: null, platform: 'DOUYIN',
     timers: []
   };
 
   const SCREEN_STATES = {
     home: ['data', 'empty'],
+    history: ['data', 'empty'],
     recipes: ['data', 'empty'],
     recipe: ['steps', 'ingredients', 'original'],
     capture: ['idle', 'preparing', 'needsWebView', 'downloading', 'success', 'failed'],
@@ -1422,6 +1526,7 @@ body.chrome #stage{padding-top:80px}
   function setState(v, renderNow) {
     if (!v) return;
     if (S.screen === 'home') S.home = v === 'empty' ? 'empty' : 'data';
+    else if (S.screen === 'history') S.history = v === 'empty' ? 'empty' : 'data';
     else if (S.screen === 'recipes') S.recipes = v === 'empty' ? 'empty' : 'data';
     else if (S.screen === 'shopping') S.shopping = v === 'empty' ? 'empty' : 'data';
     else if (S.screen === 'capture') S.capture = v;
@@ -1436,7 +1541,7 @@ body.chrome #stage{padding-top:80px}
 
     rail.style.display = S.device === 'tablet' && S.screen !== 'login' ? 'flex' : 'none';
     nav.style.display = S.device === 'phone' && S.screen !== 'login' ? 'flex' : 'none';
-    fab.style.display = S.device === 'phone' && S.screen !== 'login' && (S.screen === 'home' || S.screen === 'recipes') ? 'flex' : 'none';
+    fab.style.display = S.device === 'phone' && S.screen === 'recipes' ? 'flex' : 'none';
 
     $$('.screen-view').forEach(el => el.classList.toggle('active', el.dataset.screen === S.screen));
 
@@ -1451,6 +1556,11 @@ body.chrome #stage{padding-top:80px}
     const sData = $('#shopData'), sEmpty = $('#shopEmpty');
     if (sData) sData.style.display = S.shopping === 'empty' ? 'none' : 'block';
     if (sEmpty) sEmpty.style.display = S.shopping === 'empty' ? 'flex' : 'none';
+
+    const hData = $('#historyData'), hEmpty = $('#historyEmpty');
+    if (hData) hData.style.display = S.history === 'empty' ? 'none' : 'block';
+    if (hEmpty) hEmpty.style.display = S.history === 'empty' ? 'flex' : 'none';
+    if (S.screen === 'history' && S.history !== 'empty') renderHistory();
 
     $$('#detailSeg button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
     $$('.tab-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === S.tab));
@@ -1565,6 +1675,79 @@ body.chrome #stage{padding-top:80px}
     });
   }
 
+  const HISTORY = {
+    '2026-10-21': [{ t: '番茄炒蛋', p: 'dy', n: '2 人份' }],
+    '2026-10-26': [{ t: '快去做！！巨好吃！！巨下饭的土豆丝炒牛肉🥢', p: 'xhs', n: '2 人份' }],
+    '2026-10-28': [{ t: '港式牛腩煲 | 暖乎乎巨好吃', p: 'xhs', n: '3 人份' }],
+    '2026-10-30': [{ t: '比烧烤还好吃！直接香迷糊的孜然土豆牛肉', p: 'dy', n: '2 人份' },
+                   { t: '记住这些万能炒菜公式', p: 'bili', n: '2 人份' }],
+    '2026-11-01': [{ t: '蒜香排骨', p: 'dy', n: '2 人份' }],
+    '2026-11-02': [{ t: '比烧烤还好吃！直接香迷糊的孜然土豆牛肉', p: 'dy', n: '2 人份' },
+                   { t: '港式牛腩煲 | 暖乎乎巨好吃', p: 'xhs', n: '3 人份' }]
+  };
+  const PLATFORM = { dy: ['抖音', 'dy'], xhs: ['小红书', 'xhs'], bili: ['B站', 'bili'] };
+  const TODAY_KEY = '2026-11-02';
+  const WEEK = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+
+  function dkey(y, m, d) {
+    return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  }
+  function monthDays(y, m) { return new Date(y, m + 1, 0).getDate(); }
+  function monthFirst(y, m) { return (new Date(y, m, 1).getDay() + 6) % 7; }
+
+  function renderHistory() {
+    const grid = $('#calGrid');
+    if (!grid) return;
+    const y = S.histY, m = S.histM;
+    $('#calMonth').textContent = y + '年' + (m + 1) + '月';
+
+    const lead = monthFirst(y, m);
+    const total = Math.ceil((lead + monthDays(y, m)) / 7) * 7;
+    const prevY = m === 0 ? y - 1 : y, prevM = m === 0 ? 11 : m - 1;
+    const nextY = m === 11 ? y + 1 : y, nextM = m === 11 ? 0 : m + 1;
+    let html = '';
+    for (let i = 0; i < total; i++) {
+      let cy = y, cm = m, d, out = false;
+      if (i < lead) { cy = prevY; cm = prevM; d = monthDays(prevY, prevM) - lead + 1 + i; out = true; }
+      else if (i >= lead + monthDays(y, m)) { cy = nextY; cm = nextM; d = i - lead - monthDays(y, m) + 1; out = true; }
+      else d = i - lead + 1;
+      const key = dkey(cy, cm, d);
+      const cls = ['cal-day', 'tap'];
+      if (out) cls.push('out');
+      if (key === TODAY_KEY) cls.push('today');
+      if (key === S.histDay) cls.push('on');
+      html += '<button class="' + cls.join(' ') + '" data-cal-day="' + key + '"><span>' + d + '</span>' +
+        (HISTORY[key] ? '<span class="dot"></span>' : '<span style="height:5px"></span>') + '</button>';
+    }
+    grid.innerHTML = html;
+
+    const dishes = HISTORY[S.histDay] || [];
+    const parts = S.histDay.split('-').map(Number);
+    const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+    $('#histTitle').textContent = parts[1] + '月' + parts[2] + '日 · ' + WEEK[(dt.getDay() + 6) % 7];
+    $('#histCount').textContent = dishes.length ? dishes.length + ' 道' : '';
+    $('#histList').innerHTML = dishes.map(d => {
+      const p = PLATFORM[d.p] || PLATFORM.dy;
+      return '<button class="hist-row tap" data-go="recipe">' +
+        '<div class="cover"><svg class="ic"><use href="#i-bowl"/></svg></div>' +
+        '<div class="h-body"><div class="t-body clamp2">' + d.t + '</div>' +
+        '<div class="h-meta"><span class="badge ' + p[1] + ' compact"><i></i>' + p[0] + '</span>' +
+        '<span class="t-label-s sub">' + d.n + '</span></div></div></button>';
+    }).join('');
+    $('#histDayEmpty').style.display = dishes.length ? 'none' : 'block';
+  }
+
+  function shiftMonth(delta) {
+    let m = S.histM + delta, y = S.histY;
+    if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+    S.histY = y; S.histM = m;
+    const pick = Object.keys(HISTORY)
+      .filter(k => { const p = k.split('-').map(Number); return p[0] === y && p[1] === m + 1; })
+      .sort().pop();
+    S.histDay = pick || dkey(y, m, 1);
+    render();
+  }
+
   function fmt(sec) {
     const m = Math.floor(sec / 60), s = sec % 60;
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
@@ -1577,6 +1760,7 @@ body.chrome #stage{padding-top:80px}
     sel.innerHTML = list.map(v => '<option value="' + v + '">' + v + '</option>').join('');
     let cur = 'default';
     if (S.screen === 'home') cur = S.home;
+    else if (S.screen === 'history') cur = S.history;
     else if (S.screen === 'recipes') cur = S.recipes;
     else if (S.screen === 'shopping') cur = S.shopping;
     else if (S.screen === 'capture') cur = S.capture;
@@ -1607,9 +1791,35 @@ body.chrome #stage{padding-top:80px}
 
   // 事件委托
   document.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-go],[data-tab],[data-dialog],[data-timer],[data-media],[data-media-close]');
+    const t = e.target.closest('[data-go],[data-tab],[data-dialog],[data-timer],[data-media],[data-media-close],[data-cal-nav],[data-cal-day],[data-edit-item],[data-src-edit]');
     if (!t) return;
     if (t.dataset.dialog === 'none') { S.dialog = null; render(); return; }
+    if (t.hasAttribute('data-src-edit')) {
+      $('#editName').value = t.dataset.name || '';
+      $('#editAmount').value = t.dataset.amount || '';
+      $('#editUnit').value = t.dataset.unit || '';
+      S.dialog = 'edit-item';
+      render();
+      return;
+    }
+    if (t.dataset.editItem) {
+      if (t.dataset.editItem === 'edit-item') {
+        $('#editName').value = t.dataset.name || '';
+        $('#editAmount').value = t.dataset.amount || '';
+        $('#editUnit').value = t.dataset.unit || '';
+      }
+      S.dialog = t.dataset.editItem;
+      render();
+      return;
+    }
+    if (t.hasAttribute('data-cal-nav')) { shiftMonth(parseInt(t.dataset.calNav, 10)); return; }
+    if (t.hasAttribute('data-cal-day')) {
+      const key = t.dataset.calDay, p = key.split('-').map(Number);
+      S.histDay = key;
+      if (p[0] !== S.histY || p[1] - 1 !== S.histM) { S.histY = p[0]; S.histM = p[1] - 1; }
+      render();
+      return;
+    }
     if (t.dataset.platform) S.platform = t.dataset.platform;
     if (t.hasAttribute('data-media-close')) { S.media = null; render(); return; }
     if (t.dataset.media) { S.media = t.dataset.media; render(); return; }
@@ -1619,12 +1829,113 @@ body.chrome #stage{padding-top:80px}
     if (t.dataset.timer) { addTimer(parseInt(t.dataset.timer, 10), t.dataset.timerLabel); return; }
   });
 
+  // 「今天吃什么」：左滑露出删除；再次左滑或点删除移除
+  let todayDrag = null, todaySuppressClick = false;
+
+  function closeTodayItems(except) {
+    $$('.today-item.open').forEach(el => { if (el !== except) el.classList.remove('open'); });
+  }
+
+  function updateTodayEmpty() {
+    const list = $('#todayList'), box = $('#todayEmptyBox');
+    if (!list || !box) return;
+    const has = !!list.querySelector('[data-today-item]');
+    box.style.display = has ? 'none' : 'flex';
+    list.style.display = has ? 'flex' : 'none';
+  }
+
+  function removeTodayItem(item) {
+    item.remove();
+    updateTodayEmpty();
+  }
+
+  document.addEventListener('pointerdown', (e) => {
+    const item = e.target.closest('[data-today-item]');
+    if (!item || e.target.closest('[data-today-delete]')) return;
+    closeTodayItems(item);
+    todayDrag = { item, x: e.clientX, y: e.clientY, moved: false, open: item.classList.contains('open'), dx: 0 };
+    item.querySelector('.today-card').style.transition = 'none';
+  });
+
+  document.addEventListener('pointermove', (e) => {
+    if (!todayDrag) return;
+    const dx = e.clientX - todayDrag.x, dy = e.clientY - todayDrag.y;
+    if (!todayDrag.moved) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        todayDrag.item.querySelector('.today-card').style.transition = '';
+        todayDrag = null;
+        return;
+      }
+      todayDrag.moved = true;
+    }
+    todayDrag.dx = dx;
+    const base = todayDrag.open ? -88 : 0;
+    const off = Math.max(-88, Math.min(0, base + dx));
+    todayDrag.item.querySelector('.today-card').style.transform = 'translateX(' + off + 'px)';
+  });
+
+  function endTodayDrag() {
+    if (!todayDrag) return;
+    const { item, moved, open, dx } = todayDrag;
+    const card = item.querySelector('.today-card');
+    card.style.transition = '';
+    card.style.transform = '';
+    todayDrag = null;
+    if (!moved) return;
+    todaySuppressClick = true;
+    setTimeout(() => { todaySuppressClick = false; }, 0);
+    if (open && dx < -24) { removeTodayItem(item); return; }
+    if (dx < -40) { closeTodayItems(item); item.classList.add('open'); }
+    else item.classList.remove('open');
+  }
+  document.addEventListener('pointerup', endTodayDrag);
+  document.addEventListener('pointercancel', endTodayDrag);
+
+  document.addEventListener('click', (e) => {
+    if (todaySuppressClick) {
+      todaySuppressClick = false;
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+    const del = e.target.closest('[data-today-delete]');
+    if (del) {
+      removeTodayItem(del.closest('[data-today-item]'));
+      e.stopPropagation();
+      return;
+    }
+    const open = $('.today-item.open');
+    if (!open) return;
+    if (e.target.closest('.today-item') === open && e.target.closest('.today-card')) {
+      open.classList.remove('open');
+      e.stopPropagation();
+      e.preventDefault();
+    } else if (!e.target.closest('.today-item')) {
+      open.classList.remove('open');
+    }
+  }, true);
+
+  // 采购行：勾选 / 删除 / 展开编辑（对应 ShoppingScreen 行交互）
+  document.addEventListener('click', (e) => {
+    const row = e.target.closest('.shop-row');
+    if (!row) return;
+    const check = e.target.closest('.check');
+    if (check) {
+      if (!check.querySelector('svg')) check.innerHTML = '<svg class="ic"><use href="#i-check"/></svg>';
+      check.classList.toggle('on');
+      row.classList.toggle('checked', check.classList.contains('on'));
+      return;
+    }
+    if (e.target.closest('.del')) { row.remove(); return; }
+    if (e.target.closest('.chev')) {
+      const body = row.querySelector('.shop-body');
+      if (body) body.click();
+    }
+  });
+
   $('#mediaImage').addEventListener('dblclick', () => {
     $('#mediaImage').classList.toggle('zoomed');
-  });
-  document.addEventListener('click', (e) => {
-    const pick = e.target.closest('[data-pick]');
-    if (pick) { const c = pick.querySelector('.pick-check'); if (c) c.classList.toggle('on'); }
   });
 
   let pressTimer = null;
