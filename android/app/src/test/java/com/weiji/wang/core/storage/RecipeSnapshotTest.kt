@@ -92,4 +92,28 @@ class RecipeSnapshotTest {
         assertNotNull(parsed)
         assertEquals(null, parsed!!.source)
     }
+
+    @Test
+    fun `step id and position round trip for step media`() {
+        val stepMedia = listOf(
+            MediaEntity(
+                id = "m2",
+                recipeId = "01ABC",
+                kind = "STEP",
+                relativePath = "recipes/01ABC/step-01-01.webp",
+                mime = "image/webp",
+                createdAt = 1000,
+                stepId = "st1",
+                position = 2,
+            ),
+        )
+        val json = RecipeSnapshot.toJson(recipe, source, ingredients, steps, stepMedia, exportedAt = 999)
+        val parsed = RecipeSnapshot.parse(json)!!
+
+        assertEquals(1, parsed.media.size)
+        assertEquals("st1", parsed.media[0].stepId)
+        assertEquals(2, parsed.media[0].position)
+        assertEquals(1, parsed.steps[1].position)
+        assertEquals("recipes/01ABC/step-01.webp", parsed.steps[1].mediaPath)
+    }
 }

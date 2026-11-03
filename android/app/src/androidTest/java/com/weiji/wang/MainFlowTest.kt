@@ -61,13 +61,13 @@ class MainFlowTest {
                 originalUrl = "https://v.douyin.com/test/",
                 canonicalUrl = "https://www.douyin.com/video/1",
                 authorName = "测试作者",
-                textBody = "食材：牛肉 400克",
+                textBody = "食材：牛肉 400克\n步骤：切块\n下锅翻炒",
                 importedAt = now,
                 fetchStatus = "OK",
             )
             val ingredients = listOf(
-                IngredientEntity("i1", recipeId, 0, null, "牛肉", 400.0, "克", "牛肉：400克", true),
-                IngredientEntity("i2", recipeId, 1, null, "土豆", 300.0, "克", "土豆：300克", true),
+                IngredientEntity("i1", recipeId, 0, null, "牛肉", 400.0, "克", "400克 牛肉", true),
+                IngredientEntity("i2", recipeId, 1, null, "土豆", 300.0, "克", "300克 土豆", true),
             )
             val steps = listOf(
                 StepEntity("s1", recipeId, 0, "切块", 60, null, null),
@@ -77,13 +77,29 @@ class MainFlowTest {
         }
     }
 
-    @Test
-    fun homeShowsTodayAndNavigationWorks() {
-        compose.onAllNodesWithText("今天").onFirst().assertIsDisplayed()
+    private fun openRecipes() {
         compose.onAllNodesWithText("菜谱").onFirst().performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("测试菜谱").fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    private fun openDetail() {
+        openRecipes()
+        compose.onAllNodesWithText("测试菜谱").onFirst().performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("步骤").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("第 1 步"))
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("第 1 步").fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun homeShowsTodayAndNavigationWorks() {
+        compose.onAllNodesWithText("今天").onFirst().assertIsDisplayed()
+        openRecipes()
         compose.onAllNodesWithText("采购").onFirst().performClick()
         compose.onAllNodesWithText("采购").onFirst().assertIsDisplayed()
         compose.onAllNodesWithText("我的").onFirst().performClick()
@@ -91,62 +107,55 @@ class MainFlowTest {
     }
 
     @Test
-    fun opensRecipeAndCompletesCookFlow() {
-        compose.onAllNodesWithText("菜谱").onFirst().performClick()
+    fun recipeDetailShowsStepsFirstAndNoCookMode() {
+        openDetail()
+        compose.onNodeWithText("第 1 步").assertIsDisplayed()
+        compose.onNodeWithText("步骤").assertIsDisplayed()
+        compose.onNodeWithText("食材").assertIsDisplayed()
+        compose.onNodeWithText("原文").assertIsDisplayed()
+        compose.onNodeWithText("开始做").assertDoesNotExist()
+    }
+
+    @Test
+    fun addToTodayUpdatesHomeAndShopping() {
+        openDetail()
+        compose.onNodeWithText("食材").performClick()
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("今晚做这道"))
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("今晚做这道").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("今晚做这道").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("已加入今天吃什么").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onAllNodesWithText("今天").onFirst().performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("测试菜谱").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onAllNodesWithText("测试菜谱").onFirst().performClick()
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("开始做").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onAllNodesWithText("开始做").onFirst().performClick()
-
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("第 1 步").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithText("第 1 步").assertIsDisplayed()
-        compose.onNodeWithText("下一步").performClick()
-        compose.waitUntil(3_000) {
-            compose.onAllNodesWithText("第 2 步").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithText("做完了").performClick()
-        compose.waitUntil(3_000) {
-            compose.onAllNodesWithText("记录这次").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithText("保存").performClick()
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("开始做").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithText("开始做").assertIsDisplayed()
-    }
-
-    @Test
-    fun captureScreenOpensFromFab() {
-        compose.onNodeWithContentDescription("收录").performClick()
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("收录").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithText("解析").assertIsDisplayed()
-        compose.onNodeWithText("手动创建").assertIsDisplayed()
-    }
-
-    @Test
-    fun shoppingEmptyStateIsShown() {
+        compose.onAllNodesWithText("测试菜谱").onFirst().assertIsDisplayed()
         compose.onAllNodesWithText("采购").onFirst().performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("采购清单是空的").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("牛肉").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("采购清单是空的").assertIsDisplayed()
+    }
+
+    @Test
+    fun historyScreenOpens() {
+        compose.onNodeWithContentDescription("吃过的菜").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("按天回看每天的菜单").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("按天回看每天的菜单").assertIsDisplayed()
     }
 
     @Test
     fun searchFiltersRecipes() {
-        compose.onAllNodesWithText("菜谱").onFirst().performClick()
+        openRecipes()
+        compose.onNodeWithText("搜菜名、食材、作者").performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("测试菜谱").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNode(hasSetTextAction()).performTextInput("土豆")
+        compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("土豆")
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("测试菜谱").fetchSemanticsNodes().isNotEmpty()
         }
@@ -154,68 +163,73 @@ class MainFlowTest {
     }
 
     @Test
-    fun favoriteAndAddToShopping() {
-        compose.onAllNodesWithText("菜谱").onFirst().performClick()
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("测试菜谱").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onAllNodesWithText("测试菜谱").onFirst().performClick()
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithContentDescription("收藏").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onAllNodesWithContentDescription("收藏").onFirst().performClick()
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithContentDescription("取消收藏").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onAllNodes(hasScrollAction()).onFirst()
-            .performScrollToNode(hasText("全部加入采购清单"))
-        compose.onAllNodesWithText("全部加入采购清单").onFirst().performClick()
+    fun shoppingAddsManualItemAndOpensEditor() {
         compose.onAllNodesWithText("采购").onFirst().performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithContentDescription("添加采购项").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("添加采购项").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().size >= 2
+        }
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput("牛肉")
+        compose.onAllNodes(hasSetTextAction())[1].performTextInput("500")
+        compose.onNodeWithText("添加").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("牛肉").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onAllNodesWithText("牛肉").onFirst().assertIsDisplayed()
-        compose.onAllNodesWithText("土豆").onFirst().assertIsDisplayed()
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("牛肉"))
+        compose.onAllNodesWithText("牛肉").onFirst().performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("编辑采购项").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("编辑采购项").assertIsDisplayed()
     }
 
     @Test
     fun editScreenSavesAndReturnsToDetail() {
-        compose.onAllNodesWithText("菜谱").onFirst().performClick()
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("测试菜谱").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onAllNodesWithText("测试菜谱").onFirst().performClick()
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithContentDescription("编辑").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onAllNodesWithContentDescription("编辑").onFirst().performClick()
+        openDetail()
+        compose.onNodeWithContentDescription("编辑").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("保存").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onAllNodesWithText("保存").onFirst().performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("开始做").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("步骤").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("开始做").assertIsDisplayed()
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("第 1 步"))
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("第 1 步").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("第 1 步").assertIsDisplayed()
     }
 
     @Test
-    fun deleteRecipeRemovesItFromList() {
-        compose.onAllNodesWithText("菜谱").onFirst().performClick()
+    fun favoriteToggles() {
+        openDetail()
+        compose.onNodeWithContentDescription("收藏").performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("测试菜谱").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithContentDescription("取消收藏").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onAllNodesWithText("测试菜谱").onFirst().performClick()
+        compose.onNodeWithContentDescription("取消收藏").assertIsDisplayed()
+    }
+
+    @Test
+    fun captureScreenOpensFromFab() {
+        openRecipes()
+        compose.onNodeWithContentDescription("收录").performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithContentDescription("删除").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("解析").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onAllNodesWithContentDescription("删除").onFirst().performClick()
-        compose.waitUntil(3_000) {
-            compose.onAllNodesWithText("删除这道菜谱？").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithText("删除").performClick()
+        compose.onNodeWithText("解析").assertIsDisplayed()
+    }
+
+    @Test
+    fun shoppingEmptyStateIsShownBeforeAdding() {
+        compose.onAllNodesWithText("采购").onFirst().performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("测试菜谱").fetchSemanticsNodes().isEmpty()
+            compose.onAllNodesWithText("采购清单是空的").fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onNodeWithText("采购清单是空的").assertIsDisplayed()
     }
 }

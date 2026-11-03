@@ -6,8 +6,12 @@ import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.weiji.wang.core.data.prefs.ThemeMode
 import com.weiji.wang.ui.LocalContainer
 import com.weiji.wang.ui.WeijiApp
 import com.weiji.wang.ui.theme.WeijiTheme
@@ -28,8 +32,16 @@ class MainActivity : ComponentActivity() {
         val container = (application as WeijiApplication).container
         readShare(intent)
         setContent {
+            val theme by container.settings.theme.collectAsStateWithLifecycle(
+                initialValue = ThemeMode.SYSTEM,
+            )
+            val darkTheme = when (theme) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
             CompositionLocalProvider(LocalContainer provides container) {
-                WeijiTheme {
+                WeijiTheme(darkTheme = darkTheme) {
                     WeijiApp(
                         shareText = shareText.value,
                         shareUris = shareUris.value,

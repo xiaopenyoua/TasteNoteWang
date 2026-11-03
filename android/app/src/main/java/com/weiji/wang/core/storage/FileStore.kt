@@ -33,6 +33,7 @@ class FileStore(private val context: Context) {
     val root: File = (context.getExternalFilesDir(null) ?: context.filesDir).resolve("weiji").apply { mkdirs() }
     val recipesDir: File = root.resolve("recipes").apply { mkdirs() }
     val exportsDir: File = root.resolve("exports").apply { mkdirs() }
+    val historyDir: File = root.resolve("history").apply { mkdirs() }
     val cacheDir: File = context.cacheDir.resolve("import").apply { mkdirs() }
 
     fun recipeDir(recipeId: String): File = recipesDir.resolve(recipeId)
@@ -249,6 +250,50 @@ class FileStore(private val context: Context) {
         }
     }
 
+    /**
+     * 为「吃过的菜」生成历史封面：最长边 720、WebP 85，写到 history/<date>/<recipeId>.webp。
+     * 返回相对路径；原图缺失或无法解码时返回 null。
+     */
+    fun saveHistoryCover(recipeId: String, coverRelativePath: String?, date: String): String? {
+        if (coverRelativePath.isNullOrBlank()) return null
+        val source = resolve(coverRelativePath)
+        if (!source.exists() || source.length() == 0L) return null
+        return runCatching {
+            val dir = historyDir.resolve(date).apply { mkdirs() }
+            val target = dir.resolve("$recipeId.webp")
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(source.absolutePath, bounds)
+            val opts = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, HISTORY_COVER_MAX_EDGE)
+            }
+            val decoded = BitmapFactory.decodeFile(source.absolutePath, opts)
+                ?: return@runCatching null
+            val bitmap = scaleDown(decoded, HISTORY_COVER_MAX_EDGE)
+            try {
+                val temp = dir.resolve("$recipeId.webp.part")
+                FileOutputStream(temp).use { out ->
+                    val format = if (Build.VERSION.SDK_INT >= 30) {
+                        Bitmap.CompressFormat.WEBP_LOSSY
+                    } else {
+                        @Suppress("DEPRECATION")
+                        Bitmap.CompressFormat.WEBP
+                    }
+                    bitmap.compress(format, HISTORY_COVER_QUALITY, out)
+                    out.flush()
+                    out.fd.sync()
+                }
+                if (target.exists()) target.delete()
+                if (!temp.renameTo(target)) {
+                    temp.copyTo(target, overwrite = true)
+                    temp.delete()
+                }
+            } finally {
+                bitmap.recycle()
+            }
+            relativeOf(target)
+        }.getOrNull()
+    }
+
     fun deleteRecipe(recipeId: String) {
         recipeDir(recipeId).deleteRecursively()
     }
@@ -339,6 +384,9 @@ class FileStore(private val context: Context) {
     }.getOrNull()?.takeIf { it > 0 }
 
     companion object {
+        private const val HISTORY_COVER_MAX_EDGE = 720
+        private const val HISTORY_COVER_QUALITY = 85
+
         fun nameForCover(): String = "cover.webp"
         fun nameForStep(index: Int): String = "step-%02d.webp".format(index)
         fun nameForPhoto(index: Int): String = "photo-%02d.webp".format(index)

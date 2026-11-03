@@ -1,11 +1,8 @@
 package com.weiji.wang.feature.settings
 
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -24,14 +23,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,15 +45,17 @@ import com.weiji.wang.core.AppContainer
 import com.weiji.wang.core.data.prefs.ThemeMode
 import com.weiji.wang.core.model.Platform
 import com.weiji.wang.ui.LocalContainer
+import com.weiji.wang.ui.components.ConfirmDialog
 import com.weiji.wang.ui.components.PageHeader
 import com.weiji.wang.ui.components.SectionHeader
 import com.weiji.wang.ui.components.SegmentedControl
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+
+enum class AccountLevel { OK, WARN, NONE }
+
+data class AccountStatus(val label: String, val level: AccountLevel)
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val storageBytes = container.recipes.observeStorageBytes()
@@ -78,27 +82,29 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settings.setAutoDownloadMedia(value) }
     }
 
-    fun hasCookie(platform: Platform): Boolean = container.cookies.has(platform)
+    fun accountStatus(platform: Platform): AccountStatus {
+        val saved = container.cookies.cookieFor(platform) != null
+        if (!saved) {
+            return if (platform == Platform.XIAOHONGSHU) {
+                AccountStatus("网页登录受限", AccountLevel.WARN)
+            } else {
+                AccountStatus("未登录", AccountLevel.NONE)
+            }
+        }
+        val updatedAt = container.cookies.lastUpdated(platform)
+        if (updatedAt > 0 && System.currentTimeMillis() - updatedAt > STALE_AFTER_MS) {
+            return AccountStatus("建议重新登录", AccountLevel.WARN)
+        }
+        return AccountStatus("已登录", AccountLevel.OK)
+    }
 
     fun clearCookies() {
         container.cookies.clearAll()
         cookieRevision += 1
     }
 
-    fun export(uri: android.net.Uri, onDone: (String) -> Unit) {
-        viewModelScope.launch {
-            runCatching { container.backup.exportTo(uri, includeMedia = true) }
-                .onSuccess { onDone("已导出 ${it.recipes} 道菜谱") }
-                .onFailure { onDone("导出失败：${it.message}") }
-        }
-    }
-
-    fun restore(uri: android.net.Uri, onDone: (String) -> Unit) {
-        viewModelScope.launch {
-            runCatching { container.backup.restoreFrom(uri) }
-                .onSuccess { onDone("恢复完成：${it.imported} 道，跳过 ${it.skipped} 道") }
-                .onFailure { onDone("恢复失败：${it.message}") }
-        }
+    private companion object {
+        const val STALE_AFTER_MS = 30L * 24 * 60 * 60 * 1000
     }
 }
 
@@ -114,20 +120,12 @@ fun SettingsScreen(nav: NavHostController) {
     val autoDownload by vm.autoDownload.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val cookieRevision = vm.cookieRevision
+    var showClearLogin by remember { mutableStateOf(false) }
+    var resumeTick by remember { mutableIntStateOf(0) }
 
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/zip"),
-    ) { uri ->
-        if (uri != null) {
-            vm.export(uri) { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
-        }
-    }
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri != null) {
-            vm.restore(uri) { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
-        }
+    LifecycleResumeEffect(Unit) {
+        resumeTick += 1
+        onPauseOrDispose { }
     }
 
     LazyColumn(
@@ -142,21 +140,15 @@ fun SettingsScreen(nav: NavHostController) {
                 SettingsRow(
                     title = "存储空间",
                     value = formatBytes(bytes),
+                    chevron = true,
+                    onClick = { nav.navigate("storage") },
                 )
                 HairlineRow()
                 SettingsRow(
-                    title = "导出备份",
-                    value = "含图片与视频",
-                    onClick = {
-                        val name = "weiji-backup-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}.zip"
-                        exportLauncher.launch(name)
-                    },
-                )
-                HairlineRow()
-                SettingsRow(
-                    title = "从备份恢复",
-                    value = "选择 .zip",
-                    onClick = { importLauncher.launch(arrayOf("application/zip")) },
+                    title = "数据迁移",
+                    value = "迁出 / 迁入",
+                    chevron = true,
+                    onClick = { nav.navigate("migrate") },
                 )
             }
         }
@@ -177,32 +169,29 @@ fun SettingsScreen(nav: NavHostController) {
                         Switch(checked = autoDownload, onCheckedChange = vm::setAutoDownload)
                     },
                 )
-                HairlineRow()
-                SettingsRow(
-                    title = "抖音登录",
-                    value = if (vm.hasCookie(Platform.DOUYIN)) "已登录" else "未登录",
-                    onClick = { nav.navigate("login/DOUYIN") },
-                )
-                HairlineRow()
-                SettingsRow(
-                    title = "小红书登录",
-                    value = if (vm.hasCookie(Platform.XIAOHONGSHU)) "已登录" else "未登录",
-                    onClick = { nav.navigate("login/XIAOHONGSHU") },
-                )
-                HairlineRow()
-                SettingsRow(
-                    title = "B 站登录",
-                    value = if (vm.hasCookie(Platform.BILIBILI)) "已登录" else "未登录",
-                    onClick = { nav.navigate("login/BILIBILI") },
-                )
+            }
+        }
+
+        item { SectionHeader(title = "平台账号") }
+        item {
+            SettingsGroup {
+                PlatformAccounts.forEachIndexed { index, platform ->
+                    if (index > 0) HairlineRow()
+                    val status = remember(resumeTick, cookieRevision, platform) {
+                        vm.accountStatus(platform)
+                    }
+                    SettingsRow(
+                        title = platform.label,
+                        chevron = true,
+                        trailing = { AccountStatusView(status) },
+                        onClick = { nav.navigate("login/${platform.key}") },
+                    )
+                }
                 HairlineRow()
                 SettingsRow(
                     title = "清除全部登录信息",
                     danger = true,
-                    onClick = {
-                        vm.clearCookies()
-                        Toast.makeText(context, "已清除", Toast.LENGTH_SHORT).show()
-                    },
+                    onClick = { showClearLogin = true },
                 )
             }
         }
@@ -247,7 +236,7 @@ fun SettingsScreen(nav: NavHostController) {
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "卸载应用会删除本机数据；换机或卸载前，请先导出备份。",
+                        text = "卸载应用会删除本机数据；换机或卸载前，请先使用「数据迁移」导出。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -260,6 +249,49 @@ fun SettingsScreen(nav: NavHostController) {
                 }
             }
         }
+    }
+
+    if (showClearLogin) {
+        ConfirmDialog(
+            title = "清除全部登录信息？",
+            body = "三个平台保存的 Cookie 都会被删除，之后解析需要登录的内容时会失败。",
+            confirmLabel = "清除",
+            onDismiss = { showClearLogin = false },
+            onConfirm = {
+                vm.clearCookies()
+                showClearLogin = false
+                Toast.makeText(context, "已清除全部登录信息", Toast.LENGTH_SHORT).show()
+            },
+        )
+    }
+}
+
+private val PlatformAccounts = listOf(
+    Platform.DOUYIN,
+    Platform.XIAOHONGSHU,
+    Platform.BILIBILI,
+)
+
+@Composable
+private fun AccountStatusView(status: AccountStatus) {
+    val color = when (status.level) {
+        AccountLevel.OK -> MaterialTheme.colorScheme.tertiary
+        AccountLevel.WARN -> MaterialTheme.colorScheme.primary
+        AccountLevel.NONE -> MaterialTheme.colorScheme.outline
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(color),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = status.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -281,6 +313,7 @@ private fun SettingsRow(
     title: String,
     value: String? = null,
     danger: Boolean = false,
+    chevron: Boolean = false,
     onClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
@@ -304,6 +337,15 @@ private fun SettingsRow(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (chevron) {
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "›",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.outline,
+                fontWeight = FontWeight.Normal,
             )
         }
     }

@@ -4,7 +4,11 @@ import android.content.Context
 import android.net.Uri
 import com.weiji.wang.core.data.RecipeRepository
 import com.weiji.wang.core.data.db.IngredientEntity
+import com.weiji.wang.core.data.db.MealMenuEntity
 import com.weiji.wang.core.data.db.MediaEntity
+import com.weiji.wang.core.data.db.NoteEntity
+import com.weiji.wang.core.data.db.ShoppingItemEntity
+import com.weiji.wang.core.data.db.ShoppingListEntity
 import com.weiji.wang.core.data.db.RecipeEntity
 import com.weiji.wang.core.data.db.SourceEntity
 import com.weiji.wang.core.data.db.StepEntity
@@ -13,6 +17,7 @@ import com.weiji.wang.core.model.Ulid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -47,6 +52,55 @@ class BackupManager(
         val title: String,
         val updatedAt: Long,
         val fileCount: Int,
+    )
+
+    @Serializable
+    private data class NoteDto(
+        val id: String,
+        val recipeId: String,
+        val stepId: String? = null,
+        val text: String,
+        val createdAt: Long,
+        val updatedAt: Long,
+    )
+
+    @Serializable
+    private data class HistoryDto(
+        val date: String,
+        val recipeId: String,
+        val snapshotJson: String,
+        val coverCachePath: String? = null,
+        val addedAt: Long,
+    )
+
+    @Serializable
+    private data class ShoppingListDto(
+        val id: String,
+        val name: String,
+        val createdAt: Long,
+        val archived: Boolean = false,
+    )
+
+    @Serializable
+    private data class ShoppingItemDto(
+        val id: String,
+        val listId: String,
+        val name: String,
+        val amount: Double? = null,
+        val unit: String? = null,
+        val category: String? = null,
+        val checked: Boolean = false,
+        val recipeId: String? = null,
+        val sourceDate: String? = null,
+        val createdAt: Long,
+    )
+
+    @Serializable
+    private data class Extras(
+        val notes: List<NoteDto> = emptyList(),
+        val history: List<HistoryDto> = emptyList(),
+        val shoppingLists: List<ShoppingListDto> = emptyList(),
+        val shoppingItems: List<ShoppingItemDto> = emptyList(),
     )
 
     suspend fun exportTo(uri: Uri, includeMedia: Boolean = true): ExportResult = withContext(Dispatchers.IO) {
@@ -104,6 +158,36 @@ class BackupManager(
             includesMedia = includeMedia,
             recipes = manifestRecipes,
         )
+        val extras = Extras(
+            notes = db.noteDao().all().map {
+                NoteDto(it.id, it.recipeId, it.stepId, it.text, it.createdAt, it.updatedAt)
+            },
+            history = db.mealMenuDao().all().map {
+                HistoryDto(it.date, it.recipeId, it.snapshotJson, it.coverCachePath, it.addedAt)
+            },
+            shoppingLists = db.shoppingDao().allLists().map {
+                ShoppingListDto(it.id, it.name, it.createdAt, it.archived)
+            },
+            shoppingItems = db.shoppingDao().allItems().map {
+                ShoppingItemDto(
+                    it.id, it.listId, it.name, it.amount, it.unit, it.category,
+                    it.checked, it.recipeId, it.sourceDate, it.createdAt,
+                )
+            },
+        )
+        entries += Triple(
+            File(files.root, "extras.json"),
+            "extras.json",
+            json.encodeToString(extras).toByteArray(Charsets.UTF_8),
+        )
+        files.historyDir.walkTopDown().filter { it.isFile }.forEach { file ->
+            entries += Triple(
+                file,
+                "history/" + file.relativeTo(files.historyDir).invariantSeparatorsPath,
+                null,
+            )
+        }
+
         val manifestBytes = json.encodeToString(manifest).toByteArray(Charsets.UTF_8)
 
         val output = context.contentResolver.openOutputStream(uri)
@@ -128,11 +212,18 @@ class BackupManager(
         ExportResult(manifestRecipes.size, bytes)
     }
 
-    suspend fun restoreFrom(uri: Uri): RestoreResult = withContext(Dispatchers.IO) {
+    suspend fun restoreFrom(uri: Uri, replaceAll: Boolean = false): RestoreResult = withContext(Dispatchers.IO) {
         val staging = File(files.cacheDir, "restore-${Ulid.next()}").apply { mkdirs() }
         var imported = 0
         var skipped = 0
         var failed = 0
+        if (replaceAll) {
+            db.clearAllTables()
+            files.recipesDir.deleteRecursively()
+            files.recipesDir.mkdirs()
+            files.historyDir.deleteRecursively()
+            files.historyDir.mkdirs()
+        }
         try {
             val input = context.contentResolver.openInputStream(uri) ?: error("无法读取备份")
             ZipInputStream(input.buffered()).use { zip ->
@@ -251,12 +342,61 @@ class BackupManager(
                             sha256 = it.sha256,
                             originUrl = it.originUrl,
                             watermarkFree = it.watermarkFree,
+                            stepId = it.stepId,
+                            position = it.position,
                             createdAt = System.currentTimeMillis(),
                         )
                     }
                     recipes.saveRecipe(recipe, ingredients, steps, source, media)
                     imported += 1
                 }.onFailure { failed += 1 }
+            }
+
+            // 备注、每日菜单历史、采购清单（以及历史封面文件）
+            val extrasFile = File(staging, "extras.json")
+            if (extrasFile.exists()) {
+                runCatching {
+                    val extras = json.decodeFromString<Extras>(extrasFile.readText())
+                    extras.notes.forEach {
+                        db.noteDao().upsert(
+                            NoteEntity(it.id, it.recipeId, it.stepId, it.text, it.createdAt, it.updatedAt),
+                        )
+                    }
+                    extras.history.forEach {
+                        db.mealMenuDao().upsert(
+                            MealMenuEntity(it.date, it.recipeId, it.snapshotJson, it.coverCachePath, it.addedAt),
+                        )
+                    }
+                    extras.shoppingLists.forEach {
+                        db.shoppingDao().upsertList(
+                            ShoppingListEntity(it.id, it.name, it.createdAt, it.archived),
+                        )
+                    }
+                    extras.shoppingItems.forEach {
+                        db.shoppingDao().upsertItem(
+                            ShoppingItemEntity(
+                                id = it.id,
+                                listId = it.listId,
+                                name = it.name,
+                                amount = it.amount,
+                                unit = it.unit,
+                                category = it.category,
+                                checked = it.checked,
+                                recipeId = it.recipeId,
+                                sourceDate = it.sourceDate,
+                                createdAt = it.createdAt,
+                            ),
+                        )
+                    }
+                }.onFailure { failed += 1 }
+            }
+            val stagedHistory = File(staging, "history")
+            if (stagedHistory.exists()) {
+                stagedHistory.walkTopDown().filter { it.isFile }.forEach { file ->
+                    val dest = files.historyDir.resolve(file.relativeTo(stagedHistory).invariantSeparatorsPath)
+                    dest.parentFile?.mkdirs()
+                    runCatching { file.copyTo(dest, overwrite = true) }
+                }
             }
         } finally {
             staging.deleteRecursively()

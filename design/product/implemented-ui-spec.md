@@ -14,7 +14,7 @@ related:
 
 # 已实现 UI 规格（设计稿 ↔ 代码对照）
 
-> **2026-11-02：有一份待确认的 UI 变更提案**（[`ui-change-proposal.md`](ui-change-proposal.md) / [`../prototype/ui-proposal.html`](../prototype/ui-proposal.html)）。本文仍描述**当前已实现**的 UI；确认并编码后再更新本文。
+> **2026-11-03：提案已实施**（[`ui-change-proposal.md`](ui-change-proposal.md) / [`../prototype/ui-proposal.html`](../prototype/ui-proposal.html)）。应用已按提案重构；本文 4.x 的逐屏描述仍是旧版，**冲突时以代码与提案为准**，逐屏规格待补。
 > 本文描述**代码已经实现**的 UI。设计意图仍看 [`screen-specs.md`](screen-specs.md)；两者冲突时，以本文和代码为准。
 > 可视稿：[`../prototype/ui.html`](../prototype/ui.html)。静态截图：`design/exports/phone-*.png`（411×914，浅色/深色）。
 > 基准代码：`android/app/src/main/java/com/weiji/wang/`；行号以 2026-11-02 为准。

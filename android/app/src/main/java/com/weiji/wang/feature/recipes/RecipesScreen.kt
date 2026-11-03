@@ -1,7 +1,9 @@
 package com.weiji.wang.feature.recipes
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,11 +28,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,20 +51,21 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
+import com.weiji.wang.core.data.MenuRepository
 import com.weiji.wang.core.data.RecipeRepository
 import com.weiji.wang.core.data.db.RecipeCard
 import com.weiji.wang.core.model.Platform
 import com.weiji.wang.ui.LocalContainer
+import com.weiji.wang.ui.components.ConfirmDialog
 import com.weiji.wang.ui.components.EmptyState
 import com.weiji.wang.ui.components.FilterPill
-import com.weiji.wang.ui.components.focusRing
 import com.weiji.wang.ui.components.PageHeader
 import com.weiji.wang.ui.components.PlatformBadge
+import com.weiji.wang.ui.components.RecipeActionSheet
 import com.weiji.wang.ui.components.RecipeCover
-import com.weiji.wang.ui.components.SearchField
+import com.weiji.wang.ui.components.focusRing
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -69,19 +78,15 @@ enum class RecipeFilter(val label: String) {
     QUICK("30 分钟内"),
 }
 
-class RecipesViewModel(private val repo: RecipeRepository) : ViewModel() {
-    val query = MutableStateFlow("")
+class RecipesViewModel(
+    private val repo: RecipeRepository,
+    private val menu: MenuRepository,
+) : ViewModel() {
     val filter = MutableStateFlow(RecipeFilter.ALL)
 
-    val cards = combine(query, filter) { q, f -> q to f }
-        .flatMapLatest { (q, f) ->
-            repo.search(q).map { list -> applyFilter(list, f) }
-        }
+    val cards = filter
+        .flatMapLatest { value -> repo.observeCards().map { list -> applyFilter(list, value) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    fun setQuery(value: String) {
-        query.value = value
-    }
 
     fun setFilter(value: RecipeFilter) {
         filter.value = value
@@ -89,6 +94,15 @@ class RecipesViewModel(private val repo: RecipeRepository) : ViewModel() {
 
     fun toggleFavorite(card: RecipeCard) {
         viewModelScope.launch { repo.setFavorite(card.id, !card.favorite) }
+    }
+
+    suspend fun addToToday(card: RecipeCard): Boolean = menu.addToday(card.id)
+
+    fun delete(card: RecipeCard, onDone: () -> Unit) {
+        viewModelScope.launch {
+            repo.deleteRecipe(card.id)
+            onDone()
+        }
     }
 
     private fun applyFilter(list: List<RecipeCard>, filter: RecipeFilter): List<RecipeCard> = when (filter) {
@@ -100,16 +114,21 @@ class RecipesViewModel(private val repo: RecipeRepository) : ViewModel() {
 }
 
 @Composable
-fun RecipesScreen(nav: NavHostController) {
+fun RecipesScreen(nav: NavHostController, snackbarHostState: SnackbarHostState) {
     val container = LocalContainer.current
     val vm: RecipesViewModel = viewModel(
-        factory = viewModelFactory { initializer { RecipesViewModel(container.recipes) } },
+        factory = viewModelFactory {
+            initializer { RecipesViewModel(container.recipes, container.menu) }
+        },
     )
     val cards by vm.cards.collectAsStateWithLifecycle()
-    val query by vm.query.collectAsStateWithLifecycle()
     val filter by vm.filter.collectAsStateWithLifecycle()
     val width = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
     val columns = if (width >= 840) 3 else 2
+    val scope = rememberCoroutineScope()
+
+    var menuCard by remember { mutableStateOf<RecipeCard?>(null) }
+    var deleteCard by remember { mutableStateOf<RecipeCard?>(null) }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(columns),
@@ -126,15 +145,15 @@ fun RecipesScreen(nav: NavHostController) {
             )
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
-            SearchField(value = query, onValueChange = vm::setQuery)
+            RecipesSearchBar(onClick = { nav.navigate("search") })
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(vertical = 2.dp),
             ) {
-                items(RecipeFilter.entries) { f ->
-                    FilterPill(text = f.label, selected = filter == f) { vm.setFilter(f) }
+                items(RecipeFilter.entries) { value ->
+                    FilterPill(text = value.label, selected = filter == value) { vm.setFilter(value) }
                 }
             }
         }
@@ -142,12 +161,10 @@ fun RecipesScreen(nav: NavHostController) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Box(modifier = Modifier.fillMaxWidth().height(420.dp)) {
                     EmptyState(
-                        title = if (query.isBlank()) "还没有菜谱" else "没有找到",
-                        body = if (query.isBlank()) "从抖音、小红书或 B 站分享一条链接进来。" else "换个关键词，或清空筛选。",
-                        primaryLabel = if (query.isBlank()) "去收录" else "清空搜索",
-                        onPrimary = {
-                            if (query.isBlank()) nav.navigate("capture") else vm.setQuery("")
-                        },
+                        title = "还没有菜谱",
+                        body = "从抖音、小红书或 B 站分享一条链接进来。",
+                        primaryLabel = "去收录",
+                        onPrimary = { nav.navigate("capture") },
                     )
                 }
             }
@@ -156,22 +173,98 @@ fun RecipesScreen(nav: NavHostController) {
                 RecipeGridCard(
                     card = card,
                     onClick = { nav.navigate("recipe/${card.id}") },
+                    onLongClick = { menuCard = card },
                     onFavorite = { vm.toggleFavorite(card) },
                 )
             }
         }
     }
+
+    val sheetCard = menuCard
+    if (sheetCard != null) {
+        RecipeActionSheet(
+            title = sheetCard.title,
+            favorite = sheetCard.favorite,
+            onDismiss = { menuCard = null },
+            onAddToday = {
+                menuCard = null
+                scope.launch {
+                    val ok = vm.addToToday(sheetCard)
+                    snackbarHostState.showSnackbar(
+                        if (ok) "已加入今天吃什么 · 从今天吃什么移除时会自动减去对应食材"
+                        else "加入失败，菜谱可能已被删除",
+                    )
+                }
+            },
+            onToggleFavorite = {
+                menuCard = null
+                vm.toggleFavorite(sheetCard)
+            },
+            onDelete = {
+                menuCard = null
+                deleteCard = sheetCard
+            },
+        )
+    }
+
+    val target = deleteCard
+    if (target != null) {
+        ConfirmDialog(
+            title = "删除菜谱？",
+            body = "「${target.title}」会从菜谱里移除。已写入采购清单的食材会保留，吃过的菜历史快照不受影响。",
+            onDismiss = { deleteCard = null },
+            onConfirm = {
+                deleteCard = null
+                vm.delete(target) {
+                    scope.launch { snackbarHostState.showSnackbar("已删除菜谱") }
+                }
+            },
+        )
+    }
 }
 
 @Composable
-private fun RecipeGridCard(card: RecipeCard, onClick: () -> Unit, onFavorite: () -> Unit) {
+private fun RecipesSearchBar(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(38.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(17.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "搜菜名、食材、作者",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.tertiary,
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun RecipeGridCard(
+    card: RecipeCard,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onFavorite: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
             .focusRing(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Box {
             RecipeCover(

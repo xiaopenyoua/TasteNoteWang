@@ -39,6 +39,6 @@ design/source/
 *.tmp
 
 # ── 用户数据 / 抓取内容 ──
-data/
+/data/
 *.sqlite
 *.db

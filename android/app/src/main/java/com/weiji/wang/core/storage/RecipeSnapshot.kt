@@ -98,6 +98,8 @@ object RecipeSnapshot {
         val sha256: String? = null,
         val originUrl: String? = null,
         val watermarkFree: Boolean = true,
+        val stepId: String? = null,
+        val position: Int = 0,
     )
 
     fun toJson(
@@ -147,14 +149,26 @@ object RecipeSnapshot {
             },
             media = media.map {
                 MediaDto(
-                    it.kind, it.relativePath, it.mime, it.width, it.height,
-                    it.durationMs, it.sizeBytes, it.sha256, it.originUrl, it.watermarkFree,
+                    kind = it.kind,
+                    relativePath = it.relativePath,
+                    mime = it.mime,
+                    width = it.width,
+                    height = it.height,
+                    durationMs = it.durationMs,
+                    sizeBytes = it.sizeBytes,
+                    sha256 = it.sha256,
+                    originUrl = it.originUrl,
+                    watermarkFree = it.watermarkFree,
+                    stepId = it.stepId,
+                    position = it.position,
                 )
             },
         ),
     )
 
     fun parse(text: String): Snapshot? = runCatching { json.decodeFromString<Snapshot>(text) }.getOrNull()
+
+    fun fromJson(text: String): Snapshot? = parse(text)
 
     fun toMarkdown(snapshot: Snapshot): String = buildString {
         appendLine("# ${snapshot.recipe.title}")

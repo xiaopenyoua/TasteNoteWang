@@ -2,7 +2,9 @@ package com.weiji.wang.core
 
 import android.content.Context
 import androidx.room.Room
+import com.weiji.wang.core.data.MenuRepository
 import com.weiji.wang.core.data.RecipeRepository
+import com.weiji.wang.core.data.ShoppingRepository
 import com.weiji.wang.core.data.db.WeijiDatabase
 import com.weiji.wang.core.data.prefs.SettingsRepository
 import com.weiji.wang.core.import.CookieStore
@@ -20,13 +22,16 @@ class AppContainer(context: Context) {
         appContext,
         WeijiDatabase::class.java,
         WeijiDatabase.NAME,
-    ).build()
+    ).addMigrations(WeijiDatabase.MIGRATION_1_2)
+        .build()
 
     val files = FileStore(appContext)
     val settings = SettingsRepository(appContext)
     val cookies = CookieStore(appContext)
     val http: OkHttpClient = HttpClients.create()
 
+    val shoppingRepo = ShoppingRepository(database, files)
+    val menu = MenuRepository(database, files, shoppingRepo)
     val recipes = RecipeRepository(database, files)
     val extractors = ExtractorRegistry(http, cookies)
     val importer = ImportCoordinator(appContext, database, files, recipes, extractors, settings, http)

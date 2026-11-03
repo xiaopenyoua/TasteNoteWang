@@ -1,11 +1,14 @@
 package com.weiji.wang.feature.login
 
 import android.annotation.SuppressLint
+import android.graphics.Color
 import android.webkit.CookieManager
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,15 +17,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,22 +43,61 @@ import androidx.navigation.NavHostController
 import com.weiji.wang.core.import.HttpClients
 import com.weiji.wang.core.model.Platform
 import com.weiji.wang.ui.LocalContainer
+import com.weiji.wang.ui.components.CircleIconButton
 import com.weiji.wang.ui.components.PageHeader
 import com.weiji.wang.ui.components.PrimaryButton
 import com.weiji.wang.ui.components.SecondaryButton
+import kotlinx.coroutines.delay
 
 private data class LoginTarget(
     val platform: Platform,
-    val domain: String,
-    val startUrl: String,
     val title: String,
+    val startUrl: String,
+    val userAgent: String,
+    val cookieUrls: List<String>,
+    val authKeys: List<String>,
+    val notice: String? = null,
 )
 
 private fun targetOf(key: String): LoginTarget = when (key.uppercase()) {
-    "DOUYIN" -> LoginTarget(Platform.DOUYIN, "https://www.douyin.com", "https://www.douyin.com/", "抖音")
-    "XIAOHONGSHU" -> LoginTarget(Platform.XIAOHONGSHU, "https://www.xiaohongshu.com", "https://www.xiaohongshu.com/", "小红书")
-    "BILIBILI" -> LoginTarget(Platform.BILIBILI, "https://www.bilibili.com", "https://passport.bilibili.com/login", "B 站")
-    else -> LoginTarget(Platform.OTHER, "https://www.douyin.com", "https://www.douyin.com/", "平台")
+    "DOUYIN" -> LoginTarget(
+        platform = Platform.DOUYIN,
+        title = "抖音",
+        startUrl = "https://www.douyin.com/",
+        userAgent = HttpClients.MOBILE_UA,
+        cookieUrls = listOf("https://www.douyin.com", "https://douyin.com"),
+        authKeys = listOf("sessionid", "sessionid_ss", "sid_tt", "sid_guard"),
+    )
+
+    "XIAOHONGSHU" -> LoginTarget(
+        platform = Platform.XIAOHONGSHU,
+        title = "小红书",
+        startUrl = "https://www.xiaohongshu.com/login",
+        userAgent = HttpClients.DESKTOP_UA,
+        cookieUrls = listOf("https://www.xiaohongshu.com"),
+        authKeys = listOf("web_session"),
+        notice = "小红书网页登录可能受限：页面可能要求打开 App 或触发风控。" +
+            "系统浏览器登录不会把 Cookie 带回应用；拿不到 web_session 时请只保留链接。",
+    )
+
+    "BILIBILI" -> LoginTarget(
+        platform = Platform.BILIBILI,
+        title = "B 站",
+        startUrl = "https://passport.bilibili.com/h5-app/passport/login",
+        userAgent = HttpClients.MOBILE_UA,
+        cookieUrls = listOf("https://passport.bilibili.com", "https://www.bilibili.com"),
+        authKeys = listOf("SESSDATA"),
+        notice = "B 站使用移动版 H5 登录，只支持手机号 / 密码；本应用不提供扫码登录。",
+    )
+
+    else -> LoginTarget(
+        platform = Platform.OTHER,
+        title = "平台",
+        startUrl = "https://www.douyin.com/",
+        userAgent = HttpClients.MOBILE_UA,
+        cookieUrls = listOf("https://www.douyin.com"),
+        authKeys = listOf("sessionid"),
+    )
 }
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -62,7 +107,14 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
     val target = remember(platformKey) { targetOf(platformKey) }
     val context = LocalContext.current
     var webView by remember { mutableStateOf<WebView?>(null) }
-    var loggedIn by remember { mutableStateOf(container.cookies.has(target.platform)) }
+    var pageLoaded by remember { mutableStateOf(false) }
+    var detected by remember { mutableStateOf(false) }
+    var saved by remember {
+        mutableStateOf(
+            hasAuthCookie(container.cookies.cookieFor(target.platform), target.authKeys),
+        )
+    }
+    var slowHint by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -71,39 +123,94 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
         }
     }
 
+    LaunchedEffect(target, pageLoaded) {
+        if (!pageLoaded) return@LaunchedEffect
+        var hits = 0
+        while (true) {
+            val authenticated = hasAuthCookie(readCookie(target), target.authKeys)
+            hits = if (authenticated) hits + 1 else 0
+            if (hits >= 2) {
+                detected = true
+                return@LaunchedEffect
+            }
+            delay(1_000)
+        }
+    }
+
+    LaunchedEffect(pageLoaded) {
+        if (!pageLoaded) return@LaunchedEffect
+        delay(12_000)
+        if (!detected && !saved) slowHint = true
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         PageHeader(
             title = "登录${target.title}",
             subtitle = "登录信息只保存在本机，用于解析你主动提交的链接",
             actions = {
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .padding(8.dp),
-                ) {
-                    Icon(
-                        Icons.Filled.Close,
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CircleIconButton(
+                        icon = Icons.Filled.Refresh,
+                        contentDescription = "刷新",
+                        onClick = {
+                            detected = false
+                            slowHint = false
+                            pageLoaded = false
+                            webView?.reload()
+                        },
+                    )
+                    CircleIconButton(
+                        icon = Icons.Filled.Close,
                         contentDescription = "关闭",
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .clickable { nav.popBackStack() }
-                            .padding(4.dp),
+                        onClick = { nav.popBackStack() },
                     )
                 }
             },
         )
 
+        if (!pageLoaded) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(2.dp))
+        }
+
         AndroidView(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
             factory = { ctx ->
                 WebView(ctx).apply {
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.databaseEnabled = true
-                    settings.userAgentString = HttpClients.MOBILE_UA
+                    settings.userAgentString = target.userAgent
+                    settings.setSupportZoom(true)
+                    settings.builtInZoomControls = true
+                    settings.displayZoomControls = false
+                    setBackgroundColor(Color.WHITE)
                     CookieManager.getInstance().setAcceptCookie(true)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                    webViewClient = WebViewClient()
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            pageLoaded = true
+                        }
+
+                        override fun shouldOverrideUrlLoading(
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                        ): Boolean {
+                            val scheme = request?.url?.scheme?.lowercase().orEmpty()
+                            return if (scheme.isNotEmpty() && scheme !in browserSchemes) {
+                                Toast.makeText(
+                                    context,
+                                    "页面想打开 App，已拦截，请使用页面内登录入口",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    }
                     loadUrl(target.startUrl)
                     webView = this
                 }
@@ -112,49 +219,124 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
         )
 
         Column(modifier = Modifier.padding(16.dp)) {
+            target.notice?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             Text(
-                text = "在页面里完成登录，然后点下面按钮。味记不会读取你的账号或密码，只保存平台发放的 Cookie。",
+                text = "在页面里完成登录，然后点下面按钮。味记不会读取你的账号或密码，只保存平台发放的认证 Cookie。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (slowHint && !detected) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "还没有检测到认证 Cookie。若页面已完成登录，请稍等或点右上角刷新；" +
+                        "仍失败时，该平台可能限制了网页登录。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             Spacer(Modifier.height(10.dp))
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (detected || saved) MaterialTheme.colorScheme.tertiary
+                            else MaterialTheme.colorScheme.primary,
+                        ),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = when {
+                        detected -> "已检测到登录信息"
+                        saved -> "已保存登录信息"
+                        else -> "未检测到登录信息"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SecondaryButton(
+                    text = "清除",
+                    onClick = {
+                        clearPlatformCookies(target)
+                        CookieManager.getInstance().flush()
+                        container.cookies.clear(target.platform)
+                        detected = false
+                        saved = false
+                        slowHint = false
+                        webView?.reload()
+                        Toast.makeText(context, "已清除本平台登录信息", Toast.LENGTH_SHORT).show()
+                    },
+                )
                 Box(modifier = Modifier.weight(1f)) {
                     PrimaryButton(
-                        text = if (loggedIn) "已保存，返回" else "我已登录",
+                        text = if (saved && !detected) "已保存，返回" else "保存并返回",
+                        enabled = detected || saved,
                         onClick = {
-                            val cookie = runCatching {
-                                CookieManager.getInstance().getCookie(target.domain)
-                            }.getOrNull()
-                            if (cookie.isNullOrBlank()) {
-                                Toast.makeText(context, "还没有读到登录信息，请先完成登录", Toast.LENGTH_SHORT).show()
+                            val cookie = readCookie(target)
+                            if (!hasAuthCookie(cookie, target.authKeys)) {
+                                Toast.makeText(
+                                    context,
+                                    "还没有检测到认证 Cookie，请先完成登录",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
                             } else {
-                                container.cookies.saveWithTime(target.platform, cookie, System.currentTimeMillis())
-                                loggedIn = true
+                                CookieManager.getInstance().flush()
+                                container.cookies.saveWithTime(
+                                    target.platform,
+                                    cookie,
+                                    System.currentTimeMillis(),
+                                )
                                 Toast.makeText(context, "已保存登录信息", Toast.LENGTH_SHORT).show()
                                 nav.popBackStack()
                             }
                         },
                     )
                 }
-                Spacer(Modifier.padding(horizontal = 5.dp))
-                SecondaryButton(
-                    text = "清除",
-                    onClick = {
-                        container.cookies.clear(target.platform)
-                        CookieManager.getInstance().removeAllCookies(null)
-                        CookieManager.getInstance().flush()
-                        loggedIn = false
-                        Toast.makeText(context, "已清除", Toast.LENGTH_SHORT).show()
-                    },
-                )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = "提示：登录态会过期。解析突然失败时，回来重新登录一次即可。",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.tertiary,
             )
+        }
+    }
+}
+
+private val browserSchemes = setOf("http", "https", "about", "data", "javascript", "file", "blob")
+
+private fun readCookie(target: LoginTarget): String =
+    target.cookieUrls.mapNotNull { url ->
+        runCatching { CookieManager.getInstance().getCookie(url) }.getOrNull()
+    }.filter { it.isNotBlank() }.joinToString("; ")
+
+private fun hasAuthCookie(cookie: String?, keys: List<String>): Boolean {
+    if (cookie.isNullOrBlank()) return false
+    return cookie.split(';').any { part ->
+        val name = part.substringBefore('=').trim()
+        val value = part.substringAfter('=', "").trim()
+        name in keys && value.isNotEmpty()
+    }
+}
+
+private fun clearPlatformCookies(target: LoginTarget) {
+    target.cookieUrls.forEach { url ->
+        target.authKeys.forEach { key ->
+            runCatching {
+                CookieManager.getInstance().setCookie(url, "$key=; Max-Age=0; Path=/")
+            }
         }
     }
 }
