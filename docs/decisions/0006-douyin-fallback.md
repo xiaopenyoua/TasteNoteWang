@@ -1,11 +1,12 @@
 ---
 doc: docs/decisions/0006-douyin-fallback
 title: 抖音收录：WebView 页面内签名 + JSON-LD 匿名兜底，不破解签名
-status: accepted
+status: superseded
 date: 2026-10-30
 owner: wang
 supersedes: []
-superseded-by: []
+superseded-by:
+  - docs/decisions/0011-douyin-share-page-sniffing
 ---
 
 # 0006. 抖音收录策略

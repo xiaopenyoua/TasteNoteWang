@@ -28,7 +28,7 @@ design/
 | 段 | 回答 | 只进 | 永远不进 |
 |---|---|---|---|
 | `product/` | 做给谁、有哪些页面、每个页面怎么交互 | 语义名 `.md` | 实现细节、代码、调研正文 |
-| `prototype/` | 已实现界面（`ui.html`）与待确认提案（`ui-proposal.html`） | 自包含 `.html`、说明 `.md` | 代码工程、构建配置 |
+| `prototype/` | 已实现界面（`ui.html`）、待确认提案（`ui-proposal.html`）与方向稿（`recipe-preview-*.html`） | 自包含 `.html`、说明 `.md` | 代码工程、构建配置 |
 | `wireframes/` | 布局骨架长什么样 | `.png` / `.jpg` / `.pdf` | 高保真稿、源文件 |
 | `exports/` | 定稿视觉长什么样 | 原型导出的 `phone-*.png` / `proposal-*.png` 及后续切图 | `res/` 字节副本、未引用批次图 |
 | `source/` | 稿子的可编辑源 | Figma / Sketch / PSD | 任何需要入库的内容 |
@@ -50,6 +50,7 @@ design/
 6. [`product/implemented-ui-spec.md`](product/implemented-ui-spec.md) —— 设计稿与代码的逐屏对照。
 7. [`product/ui-change-proposal.md`](product/ui-change-proposal.md) —— 待确认的 UI 变更提案（详情/编辑/媒体/备注/登录/采购合并与编辑/每日菜单历史/搜索/存储/数据迁移）。
 8. [`prototype/ui-proposal.html`](prototype/ui-proposal.html) —— 提案的可视稿。
+9. [`product/recipe-preview-directions.md`](product/recipe-preview-directions.md) —— 菜谱预览页五版视觉方向（待选，含整页稿与取舍）。
 
 ## 与开发区的边界
 

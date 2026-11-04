@@ -14,6 +14,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.weiji.wang.core.data.db.IngredientEntity
@@ -89,11 +91,11 @@ class MainFlowTest {
         openRecipes()
         compose.onAllNodesWithText("测试菜谱").onFirst().performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("今晚做这道").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithContentDescription("返回").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("第 1 步"))
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("切块"))
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("第 1 步").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("切块").fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -110,22 +112,23 @@ class MainFlowTest {
     @Test
     fun recipeDetailShowsReadOnlyPreview() {
         openDetail()
-        compose.onNodeWithText("第 1 步").assertIsDisplayed()
         compose.onNodeWithText("切块").assertIsDisplayed()
+        compose.onNodeWithText("下锅翻炒").assertIsDisplayed()
         compose.onNodeWithText("开始做").assertDoesNotExist()
         compose.onNodeWithText("记一笔").assertDoesNotExist()
+        compose.onNodeWithText("加入今天食谱").assertDoesNotExist()
     }
 
     @Test
-    fun addToTodayUpdatesHomeAndShopping() {
-        openDetail()
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("今晚做这道"))
+    fun addToTodayFromRecipeLongPress() {
+        openRecipes()
+        compose.onAllNodesWithText("测试菜谱").onFirst().performTouchInput { longClick() }
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("今晚做这道").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("加入今天食谱").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("今晚做这道").performClick()
+        compose.onNodeWithText("加入今天食谱").performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("已加入今天吃什么").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("已加入今天吃什么", substring = true).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onAllNodesWithText("今天").onFirst().performClick()
         compose.waitUntil(5_000) {
@@ -189,20 +192,24 @@ class MainFlowTest {
     fun editScreenSavesAndReturnsToDetail() {
         openDetail()
         compose.onAllNodes(hasScrollAction()).onFirst()
-            .performScrollToNode(hasContentDescription("编辑"))
-        compose.onNodeWithContentDescription("编辑").performClick()
+            .performScrollToNode(hasContentDescription("更多"))
+        compose.onNodeWithContentDescription("更多").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("编辑").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("编辑").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("保存").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onAllNodesWithText("保存").onFirst().performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("今晚做这道").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithContentDescription("返回").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("第 1 步"))
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("切块"))
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("第 1 步").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("切块").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("第 1 步").assertIsDisplayed()
+        compose.onNodeWithText("切块").assertIsDisplayed()
     }
 
     @Test

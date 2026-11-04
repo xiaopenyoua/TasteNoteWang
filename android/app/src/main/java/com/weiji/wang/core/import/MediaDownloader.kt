@@ -1,5 +1,6 @@
 package com.weiji.wang.core.import
 
+import com.weiji.wang.core.model.MediaKind
 import com.weiji.wang.core.storage.FileStore
 import com.weiji.wang.core.storage.SavedFile
 import kotlinx.coroutines.Dispatchers
@@ -7,6 +8,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.FileOutputStream
+import java.util.TreeMap
 
 class MediaDownloader(
     private val http: OkHttpClient,
@@ -37,17 +39,19 @@ class MediaDownloader(
             return@withContext DownloadOutcome.Done(files.register(recipeId, fileName))
         }
 
-        val requestBuilder = Request.Builder()
-            .url(media.url)
-            .header("User-Agent", HttpClients.MOBILE_UA)
-            .header("Accept", "*/*")
-        media.headers.forEach { (k, v) -> requestBuilder.header(k, v) }
+        val requestBuilder = Request.Builder().url(media.url)
+        requestHeaders(media).forEach { (key, value) -> requestBuilder.header(key, value) }
         if (existing > 0) requestBuilder.header("Range", "bytes=$existing-")
 
         try {
             http.newCall(requestBuilder.build()).execute().use { response ->
                 if (!response.isSuccessful) {
-                    return@withContext DownloadOutcome.Failed("HTTP ${response.code}")
+                    return@withContext DownloadOutcome.Failed(failureReason(response.code))
+                }
+                val contentType = response.body?.contentType()?.toString().orEmpty()
+                if (media.kind == MediaKind.VIDEO && contentType.contains("text/html", ignoreCase = true)) {
+                    // 直链失效时 CDN 会回一个验证页/登录页，200 也可能不是视频
+                    return@withContext DownloadOutcome.Failed("取到的是网页而不是视频（直链可能已过期，重新解析一次）")
                 }
                 val append = response.code == 206 && existing > 0
                 if (!append) {
@@ -73,6 +77,10 @@ class MediaDownloader(
                     out.flush()
                     out.fd.sync()
                 }
+                if (downloaded <= 0L) {
+                    part.delete()
+                    return@withContext DownloadOutcome.Failed("响应为空（0 字节，可能被风控拦截）")
+                }
             }
             if (target.exists()) target.delete()
             if (!part.renameTo(target)) {
@@ -83,6 +91,37 @@ class MediaDownloader(
         } catch (t: Throwable) {
             DownloadOutcome.Failed(t.message ?: "下载失败")
         }
+    }
+
+    /**
+     * 默认头 + `RemoteMedia.headers` 覆盖。
+     *
+     * 抖音 CDN 需要 `Referer`/`Origin`（缺了返回 403），视频请求统一补上；
+     * `RemoteMedia.headers` 优先，B 站/小红书的平台头不会被抖音默认头污染。
+     */
+    private fun requestHeaders(media: RemoteMedia): Map<String, String> {
+        val merged = TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER)
+        merged["User-Agent"] = HttpClients.MOBILE_UA
+        merged["Accept"] = "*/*"
+        if (media.kind == MediaKind.VIDEO && isDouyinCdn(media.url)) {
+            merged["Referer"] = "https://www.douyin.com/"
+            merged["Origin"] = "https://www.douyin.com"
+        }
+        media.headers.forEach { (key, value) -> merged[key] = value }
+        return merged
+    }
+
+    private fun isDouyinCdn(url: String): Boolean =
+        listOf("douyinvod", "byteicdn", "byteimg", "douyin", "iesdouyin", "amemv")
+            .any { url.contains(it, ignoreCase = true) }
+
+    /** 失败原因要能指导下一步动作，不能只报一个数字。 */
+    private fun failureReason(code: Int): String = when (code) {
+        403 -> "HTTP 403（CDN 拒绝下载，直链可能已过期，重新解析一次）"
+        404 -> "HTTP 404（直链已失效，重新解析一次）"
+        416 -> "HTTP 416（续传区间无效，删除缓存后重试）"
+        in 500..599 -> "HTTP $code（CDN 暂时不可用，稍后重试）"
+        else -> "HTTP $code"
     }
 
     sealed interface DownloadOutcome {

@@ -83,6 +83,8 @@ object DouyinWebViewParser : WebViewContentParser {
             }
         }
 
+        val cover = images.firstOrNull()
+
         val contentId = link.contentId
             ?: Regex("""(?:video|note|slides)/(\d{15,25})""").find(url)?.groupValues?.get(1)
 
@@ -102,16 +104,21 @@ object DouyinWebViewParser : WebViewContentParser {
 
     private fun isMedia(url: String): Boolean =
         url.startsWith("http") && badUrl.none { url.contains(it, ignoreCase = true) } &&
+            // 只认直连 CDN：/aweme/v1/play 是需要签名的跳转口，App 内下载会 403
             (url.contains("douyinvod", true) ||
                 url.contains("byteicdn", true) ||
-                url.contains("/aweme/v1/play", true))
+                url.contains("video/tos", true) ||
+                url.contains(".mp4", true))
 
     private fun isImage(url: String): Boolean =
         url.startsWith("http") && badUrl.none { url.contains(it, ignoreCase = true) } &&
             url.contains("~tplv-dy-aweme-images", ignoreCase = true)
 
+    /** 抖音 CDN 会检查 Referer/Origin（2026-11-04 实测，缺 Referer 时返回 403）。 */
     fun headers(): Map<String, String> = mapOf(
         "User-Agent" to HttpClients.MOBILE_UA,
         "Referer" to "https://www.douyin.com/",
+        "Origin" to "https://www.douyin.com",
+        "Accept" to "*/*",
     )
 }

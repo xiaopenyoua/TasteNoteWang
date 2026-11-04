@@ -8,6 +8,7 @@ import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,11 +38,12 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,7 +52,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,19 +59,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -83,25 +92,22 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.navigation.NavHostController
 import com.weiji.wang.R
-import com.weiji.wang.core.data.MenuRepository
 import com.weiji.wang.core.data.RecipeRepository
 import com.weiji.wang.core.data.db.IngredientEntity
 import com.weiji.wang.core.data.db.MediaEntity
 import com.weiji.wang.core.data.db.NoteEntity
 import com.weiji.wang.core.data.db.RecipeWithDetails
+import com.weiji.wang.core.data.db.SourceEntity
 import com.weiji.wang.core.data.db.StepEntity
 import com.weiji.wang.core.model.IngredientScaler
 import com.weiji.wang.core.model.MediaKind
+import com.weiji.wang.core.model.Platform
 import com.weiji.wang.ui.LocalContainer
 import com.weiji.wang.ui.components.CircleIconButton
 import com.weiji.wang.ui.components.ConfirmDialog
 import com.weiji.wang.ui.components.EmptyState
-import com.weiji.wang.ui.components.MetaChip
-import com.weiji.wang.ui.components.PrimaryButton
 import com.weiji.wang.ui.components.RecipeCover
-import com.weiji.wang.ui.components.SectionHeader
 import coil.compose.rememberAsyncImagePainter
-import com.weiji.wang.ui.components.SourceBar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -114,10 +120,58 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * 编辑部方向的局部配色：只作用于菜谱预览页，不改全局主题。
+ * 纸张/墨色跟随当前 App 主题亮度；深色下换成暖黑纸与米白墨，避免整屏反色。
+ */
+private data class EditorialColors(
+    val paper: Color,
+    val ink: Color,
+    val ink2: Color,
+    val ink3: Color,
+    val accent: Color,
+    val hairline: Color,
+    val surface: Color,
+)
+
+private val LightEditorial = EditorialColors(
+    paper = Color(0xFFFBF8F3),
+    ink = Color(0xFF191512),
+    ink2 = Color(0xFF6F645B),
+    ink3 = Color(0xFF9A8B7D),
+    accent = Color(0xFFB3471E),
+    hairline = Color(0x1F191512),
+    surface = Color(0xFFFFFFFF),
+)
+
+private val DarkEditorial = EditorialColors(
+    paper = Color(0xFF12100E),
+    ink = Color(0xFFF5EFE6),
+    ink2 = Color(0xFFB8ADA2),
+    ink3 = Color(0xFF8F8378),
+    accent = Color(0xFFE0713F),
+    hairline = Color(0x33F5EFE6),
+    surface = Color(0xFF1E1A16),
+)
+
+@Composable
+private fun editorialColors(): EditorialColors =
+    if (MaterialTheme.colorScheme.background.luminance() < 0.4f) DarkEditorial else LightEditorial
+
+private val EditorialSerif = FontFamily.Serif
+
+private fun stepNumber(n: Int): String = n.toString().padStart(2, '0')
+
+@Composable
+private fun editorialKicker(recipe: RecipeWithDetails): String {
+    val platform = recipe.source?.let { Platform.fromKey(it.platform).label } ?: "手动"
+    val pace = recipe.recipe.totalMinutes?.let { if (it <= 30) "快手" else "慢炖" } ?: "家常"
+    return "$platform · $pace"
+}
+
 class RecipeDetailViewModel(
     private val recipeId: String,
     private val repo: RecipeRepository,
-    private val menu: MenuRepository,
 ) : ViewModel() {
     private val loadedState = MutableStateFlow(false)
     val loaded: StateFlow<Boolean> = loadedState
@@ -129,17 +183,8 @@ class RecipeDetailViewModel(
     val notes = repo.observeNotes(recipeId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val isToday = menu.observeToday()
-        .map { entries -> entries.any { it.recipeId == recipeId } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
     fun toggleFavorite(current: Boolean) {
         viewModelScope.launch { repo.setFavorite(recipeId, !current) }
-    }
-
-    /** 今晚做这道：写入今天菜单与采购；同一天重复点击是幂等的。 */
-    fun addToday(servings: Int, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch { onResult(menu.addToday(recipeId, servings)) }
     }
 
     fun delete(onDone: () -> Unit) {
@@ -156,12 +201,11 @@ fun RecipeDetailScreen(nav: NavHostController, recipeId: String) {
     val vm: RecipeDetailViewModel = viewModel(
         key = "recipe-$recipeId",
         factory = viewModelFactory {
-            initializer { RecipeDetailViewModel(recipeId, container.recipes, container.menu) }
+            initializer { RecipeDetailViewModel(recipeId, container.recipes) }
         },
     )
     val details by vm.details.collectAsStateWithLifecycle()
     val notes by vm.notes.collectAsStateWithLifecycle()
-    val isToday by vm.isToday.collectAsStateWithLifecycle()
     val loaded by vm.loaded.collectAsStateWithLifecycle()
 
     if (!loaded) {
@@ -182,7 +226,7 @@ fun RecipeDetailScreen(nav: NavHostController, recipeId: String) {
         return
     }
 
-    DetailContent(nav = nav, vm = vm, recipe = recipe, notes = notes, isToday = isToday)
+    DetailContent(nav = nav, vm = vm, recipe = recipe, notes = notes)
 }
 
 @Composable
@@ -191,12 +235,9 @@ private fun DetailContent(
     vm: RecipeDetailViewModel,
     recipe: RecipeWithDetails,
     notes: List<NoteEntity>,
-    isToday: Boolean,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
-    val snackbar = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     var servings by rememberSaveable(recipe.recipe.id) {
         mutableIntStateOf(recipe.recipe.servings.coerceIn(1, 12))
     }
@@ -260,15 +301,17 @@ private fun DetailContent(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    val colors = editorialColors()
+    Box(Modifier.fillMaxSize().background(colors.paper)) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 32.dp),
+            contentPadding = PaddingValues(bottom = 36.dp),
         ) {
             item {
                 RecipeCoverHeader(
+                    recipe = recipe,
+                    stepCount = steps.size,
                     nav = nav,
-                    coverPath = recipe.recipe.coverPath,
                     favorite = recipe.recipe.favorite,
                     onFavorite = { vm.toggleFavorite(recipe.recipe.favorite) },
                     onEdit = { nav.navigate("edit/${recipe.recipe.id}") },
@@ -279,22 +322,7 @@ private fun DetailContent(
                     },
                 )
             }
-            item {
-                RecipeHeader(
-                    recipe = recipe,
-                    servings = servings,
-                    isToday = isToday,
-                    onAddToday = {
-                        vm.addToday(servings) { ok ->
-                            scope.launch {
-                                snackbar.showSnackbar(
-                                    if (ok) "已加入今天吃什么" else "加入失败，请稍后重试",
-                                )
-                            }
-                        }
-                    },
-                )
-            }
+            item { RecipeHeader(recipe = recipe, servings = servings) }
 
             if (videoPlayer != null) {
                 item {
@@ -306,14 +334,20 @@ private fun DetailContent(
                 }
             }
 
-            item { PreviewSectionTitle("食材") }
+            item { EditorialSectionHeader("01", "食材", "$servings 人份") }
             ingredientsContent(
                 recipe = recipe,
                 servings = servings,
                 onServings = { servings = it.coerceIn(1, 12) },
             )
 
-            item { PreviewSectionTitle("步骤") }
+            item {
+                EditorialSectionHeader(
+                    "02",
+                    "步骤",
+                    if (steps.isEmpty()) null else "${steps.size} 步 · ${recipe.recipe.totalMinutes?.let { "$it 分钟" } ?: "按步骤来"}",
+                )
+            }
             stepsContent(
                 recipe = recipe,
                 notes = notes,
@@ -333,15 +367,9 @@ private fun DetailContent(
             }
 
             noteItems(notes)
-            item { Spacer(Modifier.height(8.dp)) }
+            item { EditorialFooter(recipe.source) }
         }
 
-        SnackbarHost(
-            hostState = snackbar,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        )
     }
 
     if (showDelete) {
@@ -379,14 +407,135 @@ private fun DetailContent(
     }
 }
 
-/** 预览页的分节标题，像文档大纲一样分隔食材 / 步骤。 */
+/** 编辑部方向的分节标题：大号衬线标题 + 编号 + 一条墨色细线。 */
 @Composable
-private fun PreviewSectionTitle(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),
+private fun EditorialSectionHeader(
+    number: String,
+    title: String,
+    note: String? = null,
+) {
+    val c = editorialColors()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 22.dp, end = 22.dp, top = 34.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = number,
+                fontFamily = EditorialSerif,
+                fontSize = 12.sp,
+                letterSpacing = 0.8.sp,
+                color = c.accent,
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = title,
+                fontFamily = EditorialSerif,
+                fontSize = 25.sp,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.3).sp,
+                color = c.ink,
+            )
+            Spacer(Modifier.weight(1f))
+            note?.let {
+                Text(
+                    text = it,
+                    fontSize = 9.5.sp,
+                    letterSpacing = 0.8.sp,
+                    color = c.ink3,
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(c.ink),
+        )
+        Spacer(Modifier.height(4.dp))
+    }
+}
+
+@Composable
+private fun EditorialMetaItem(value: String, label: String) {
+    val c = editorialColors()
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = c.ink,
+        )
+        Spacer(Modifier.width(2.dp))
+        Text(
+            text = label,
+            fontSize = 11.5.sp,
+            color = c.ink2,
+        )
+    }
+}
+
+@Composable
+private fun EditorialMetaDivider() {
+    val c = editorialColors()
+    Box(
+        Modifier
+            .width(1.dp)
+            .height(12.dp)
+            .background(c.hairline),
     )
+}
+
+@Composable
+private fun EditorialFooter(source: SourceEntity?) {
+    val c = editorialColors()
+    val handler = LocalUriHandler.current
+    val platform = source?.let { Platform.fromKey(it.platform).label }
+    val author = source?.authorName?.takeIf { it.isNotBlank() }
+    val left = listOfNotNull("源", platform, author?.let { "@$it" }).joinToString(" · ")
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 22.dp, end = 22.dp, top = 34.dp),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(0.5.dp)
+                .background(c.hairline),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = source != null) {
+                    source?.let { runCatching { handler.openUri(it.originalUrl) } }
+                }
+                .padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = if (source == null) "手动创建 · 无来源链接" else left,
+                fontSize = 10.sp,
+                letterSpacing = 0.6.sp,
+                color = c.ink3,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (source != null) {
+                Text(
+                    text = "原链接 ↗",
+                    fontSize = 10.sp,
+                    letterSpacing = 0.6.sp,
+                    color = c.ink3,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -395,24 +544,33 @@ private fun OriginalVideoSection(
     playingFullscreen: Boolean,
     onFullscreen: () -> Unit,
 ) {
-    Column(modifier = Modifier.padding(top = 8.dp)) {
+    val c = editorialColors()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 22.dp, end = 22.dp, top = 30.dp),
+    ) {
         Text(
             text = "原视频",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            fontSize = 9.5.sp,
+            letterSpacing = 1.8.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = c.ink3,
         )
+        Spacer(Modifier.height(8.dp))
         if (playingFullscreen) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(c.ink.copy(alpha = 0.08f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = "全屏播放中",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                    color = c.ink2,
                 )
             }
         } else {
@@ -420,7 +578,8 @@ private fun OriginalVideoSection(
                 player = player,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(16f / 9f),
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(12.dp)),
                 onFullscreen = onFullscreen,
             )
         }
@@ -429,21 +588,39 @@ private fun OriginalVideoSection(
 
 @Composable
 private fun RecipeCoverHeader(
+    recipe: RecipeWithDetails,
+    stepCount: Int,
     nav: NavHostController,
-    coverPath: String?,
     favorite: Boolean,
     onFavorite: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onOpenCover: () -> Unit,
 ) {
+    val c = editorialColors()
     val wide = LocalConfiguration.current.screenWidthDp >= 600
+    val coverPath = recipe.recipe.coverPath
+    val source = recipe.source
+    val platform = source?.let { Platform.fromKey(it.platform) } ?: Platform.OTHER
+    val author = source?.authorName?.takeIf { it.isNotBlank() }
+    val caption = when (platform) {
+        Platform.DOUYIN -> "DOUYIN ORIGINAL"
+        Platform.XIAOHONGSHU -> "XIAOHONGSHU"
+        Platform.BILIBILI -> "BILIBILI"
+        Platform.OTHER -> if (source == null) "MANUAL RECIPE" else "ORIGINAL"
+    }
+    val byline = listOfNotNull(
+        author?.let { "@$it" },
+        platform.label.takeIf { source != null },
+    ).joinToString(" · ")
+    var menuOpen by remember { mutableStateOf(false) }
+
     Box {
         RecipeCover(
             relativePath = coverPath,
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (wide) Modifier.height(320.dp) else Modifier.aspectRatio(16f / 9f)),
+                .then(if (wide) Modifier.height(380.dp) else Modifier.aspectRatio(4f / 5f)),
             shape = RoundedCornerShape(0.dp),
         )
         Box(
@@ -451,21 +628,74 @@ private fun RecipeCoverHeader(
                 .matchParentSize()
                 .clickable(enabled = coverPath != null, onClick = onOpenCover),
         )
+        // 封面底部渐隐到纸色，和正文无缝接上。
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(150.dp)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.55f to c.paper.copy(alpha = 0.72f),
+                        1f to c.paper,
+                    ),
+                ),
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(horizontal = 22.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = caption,
+                    fontSize = 9.5.sp,
+                    letterSpacing = 2.2.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = c.accent,
+                    maxLines = 1,
+                )
+                if (byline.isNotBlank()) {
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        text = byline,
+                        fontSize = 13.sp,
+                        letterSpacing = 0.1.sp,
+                        color = c.ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (stepCount > 0) {
+                Text(
+                    text = "$stepCount STEPS",
+                    fontSize = 9.5.sp,
+                    letterSpacing = 1.2.sp,
+                    color = c.ink3,
+                )
+            }
+        }
+
         CircleIconButton(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             contentDescription = "返回",
             onClick = { nav.popBackStack() },
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(8.dp),
+                .padding(12.dp),
             size = 40.dp,
             iconSize = 22.dp,
-            background = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
+            background = Color.Black.copy(alpha = 0.28f),
+            tint = Color.White,
         )
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(8.dp),
+                .padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             CircleIconButton(
@@ -474,28 +704,39 @@ private fun RecipeCoverHeader(
                 onClick = onFavorite,
                 size = 40.dp,
                 iconSize = 20.dp,
-                background = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
-                tint = if (favorite) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                background = Color.Black.copy(alpha = 0.28f),
+                tint = if (favorite) c.accent else Color.White,
             )
-            CircleIconButton(
-                icon = Icons.Filled.Edit,
-                contentDescription = "编辑",
-                onClick = onEdit,
-                size = 40.dp,
-                iconSize = 20.dp,
-                background = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            CircleIconButton(
-                icon = Icons.Filled.Delete,
-                contentDescription = "删除",
-                onClick = onDelete,
-                size = 40.dp,
-                iconSize = 20.dp,
-                background = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Box {
+                CircleIconButton(
+                    icon = Icons.Filled.MoreVert,
+                    contentDescription = "更多",
+                    onClick = { menuOpen = true },
+                    size = 40.dp,
+                    iconSize = 20.dp,
+                    background = Color.Black.copy(alpha = 0.28f),
+                    tint = Color.White,
+                )
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("编辑") },
+                        onClick = {
+                            menuOpen = false
+                            onEdit()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("删除") },
+                        onClick = {
+                            menuOpen = false
+                            onDelete()
+                        },
+                    )
+                }
+            }
         }
     }
 }
@@ -504,43 +745,122 @@ private fun RecipeCoverHeader(
 private fun RecipeHeader(
     recipe: RecipeWithDetails,
     servings: Int,
-    isToday: Boolean,
-    onAddToday: () -> Unit,
 ) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        Spacer(Modifier.height(14.dp))
+    val c = editorialColors()
+    val handler = LocalUriHandler.current
+    val source = recipe.source
+    val platform = source?.let { Platform.fromKey(it.platform).label } ?: "手动"
+    val author = source?.authorName?.takeIf { it.isNotBlank() }
+    val hasVideo = recipe.media.any { it.kind == MediaKind.VIDEO.name }
+
+    Column(modifier = Modifier.padding(horizontal = 22.dp)) {
+        Spacer(Modifier.height(24.dp))
+        Text(
+            text = editorialKicker(recipe),
+            fontSize = 10.sp,
+            letterSpacing = 1.6.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = c.accent,
+        )
+        Spacer(Modifier.height(10.dp))
         Text(
             text = recipe.recipe.title,
-            style = MaterialTheme.typography.headlineLarge,
+            style = TextStyle(
+                fontFamily = EditorialSerif,
+                fontSize = 40.sp,
+                lineHeight = 44.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.8).sp,
+            ),
+            color = c.ink,
         )
         if (recipe.recipe.subtitle.isNotBlank()) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = recipe.recipe.subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 15.sp,
+                lineHeight = 24.sp,
+                color = c.ink2,
             )
         }
-        Spacer(Modifier.height(6.dp))
-        SourceBar(recipe.source)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MetaChip("${servings} 人份")
-            recipe.recipe.totalMinutes?.let { MetaChip("约 $it 分钟") }
-            if (recipe.media.any { it.kind == MediaKind.VIDEO.name }) MetaChip("含视频")
+        Spacer(Modifier.height(20.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = source != null) {
+                    source?.let { runCatching { handler.openUri(it.originalUrl) } }
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(c.ink.copy(alpha = 0.08f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = author?.firstOrNull()?.toString()
+                        ?: platform.firstOrNull()?.toString()
+                        ?: "手",
+                    fontFamily = EditorialSerif,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = c.accent,
+                )
+            }
+            Spacer(Modifier.width(9.dp))
+            Text(
+                text = author?.let { "@$it" } ?: "手动创建",
+                fontSize = 13.sp,
+                color = c.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (source != null) {
+                Text(
+                    text = " · $platform",
+                    fontSize = 13.sp,
+                    color = c.ink2,
+                    maxLines = 1,
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = "原链接 ↗",
+                    fontSize = 12.sp,
+                    color = c.accent,
+                )
+            }
         }
+        Spacer(Modifier.height(20.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(0.5.dp)
+                .background(c.hairline),
+        )
         Spacer(Modifier.height(14.dp))
-        PrimaryButton(
-            text = if (isToday) "已加入今天吃什么" else "今晚做这道",
-            onClick = onAddToday,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = "加入今天吃什么，并把食材加入采购清单",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.tertiary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            EditorialMetaItem(servings.toString(), "人份")
+            EditorialMetaDivider()
+            recipe.recipe.totalMinutes?.let {
+                EditorialMetaItem(it.toString(), "分钟")
+                EditorialMetaDivider()
+            }
+            EditorialMetaItem(recipe.ingredients.size.toString(), "项食材")
+            if (hasVideo) {
+                EditorialMetaDivider()
+                Text(
+                    text = "原视频",
+                    fontSize = 11.5.sp,
+                    color = c.ink2,
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -600,38 +920,32 @@ private fun StepCard(
     onImageClick: (List<String>, Int) -> Unit,
     onVideoClick: (String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Column(
+    val c = editorialColors()
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(14.dp),
+                .padding(start = 22.dp, end = 22.dp, top = 14.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "$number",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.Black,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
+            Text(
+                text = stepNumber(number),
+                fontFamily = EditorialSerif,
+                fontSize = 27.sp,
+                lineHeight = 30.sp,
+                color = c.accent,
+                letterSpacing = (-0.2).sp,
+                modifier = Modifier.width(38.dp),
+            )
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "第 $number 步",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = text.ifBlank { "按图示操作" },
+                    fontSize = 15.5.sp,
+                    lineHeight = 26.sp,
+                    color = c.ink,
                 )
-                Spacer(Modifier.weight(1f))
                 if (durationSeconds != null) {
+                    Spacer(Modifier.height(8.dp))
                     StepTimerCapsule(
                         timer = timer,
                         durationSeconds = durationSeconds,
@@ -639,16 +953,14 @@ private fun StepCard(
                     )
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = text.ifBlank { "按图示操作" },
-                style = MaterialTheme.typography.bodyLarge,
-            )
         }
         if (media.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             val images = media.filter { !it.isVideo }.map { it.relativePath }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                modifier = Modifier.padding(horizontal = 22.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 media.forEachIndexed { mediaIndex, item ->
                     StepMediaBlock(
                         media = item,
@@ -674,6 +986,7 @@ private fun StepTimerCapsule(
     durationSeconds: Int,
     onClick: () -> Unit,
 ) {
+    val c = editorialColors()
     val highlighted = timer?.running == true || timer?.finished == true
     val label = when {
         timer == null -> "${formatStepDuration(durationSeconds)} · 计时"
@@ -681,32 +994,36 @@ private fun StepTimerCapsule(
         timer.running -> formatCountdown(timer.remainingSeconds)
         else -> "继续 · ${formatCountdown(timer.remainingSeconds)}"
     }
-    Box(
+    Row(
         modifier = Modifier
             .clip(CircleShape)
-            .background(
-                if (highlighted) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-                else MaterialTheme.colorScheme.surfaceVariant,
+            .border(
+                width = 0.5.dp,
+                color = if (highlighted) c.accent.copy(alpha = 0.55f) else c.hairline,
+                shape = CircleShape,
             )
+            .background(if (highlighted) c.accent.copy(alpha = 0.08f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (highlighted) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 10.5.sp,
+            letterSpacing = 0.2.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (highlighted) c.accent else c.ink2,
         )
     }
 }
 
-/** 步骤里的图片/视频铺满卡片宽度；点一下进全屏查看或播放。 */
+/** 步骤媒体与正文同宽，圆角 12；点一下进全屏查看或播放。 */
 @Composable
 private fun StepMediaBlock(
     media: StepMedia,
     onClick: () -> Unit,
 ) {
+    val c = editorialColors()
     val files = LocalContainer.current.files
     val file = remember(media.relativePath, files) { files.resolve(media.relativePath) }
     val exists = remember(file) { file.exists() && file.length() > 0L }
@@ -716,6 +1033,7 @@ private fun StepMediaBlock(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(12.dp))
                 .background(Color.Black)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
@@ -732,13 +1050,14 @@ private fun StepMediaBlock(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(4f / 3f)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .clip(RoundedCornerShape(12.dp))
+                .background(c.ink.copy(alpha = 0.06f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_bowl),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = c.ink3,
                 modifier = Modifier.size(28.dp),
             )
         }
@@ -759,7 +1078,8 @@ private fun StepMediaBlock(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(ratio)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(c.ink.copy(alpha = 0.06f))
                     .clickable(onClick = onClick),
             )
         }
@@ -768,36 +1088,37 @@ private fun StepMediaBlock(
 
 @Composable
 private fun StepNoteCard(note: NoteEntity) {
+    val c = editorialColors()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(top = 10.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 22.dp)
+            .padding(top = 12.dp)
             .height(IntrinsicSize.Min),
     ) {
         Box(
             Modifier
-                .width(3.dp)
+                .width(1.5.dp)
                 .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.primary),
+                .background(c.accent.copy(alpha = 0.65f)),
         )
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(start = 12.dp),
         ) {
             Text(
                 text = "备注 · ${formatNoteDate(note.createdAt)}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 9.5.sp,
+                letterSpacing = 0.6.sp,
+                color = c.ink3,
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = note.text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 12.sp,
+                lineHeight = 19.sp,
+                color = c.ink2,
             )
         }
     }
@@ -805,35 +1126,38 @@ private fun StepNoteCard(note: NoteEntity) {
 
 @Composable
 private fun WholeNoteCard(note: NoteEntity) {
+    val c = editorialColors()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 22.dp)
+            .padding(top = 14.dp)
             .height(IntrinsicSize.Min),
     ) {
         Box(
             Modifier
-                .width(3.dp)
+                .width(1.5.dp)
                 .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.primary),
+                .background(c.accent),
         )
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(14.dp),
+                .padding(start = 16.dp),
         ) {
             Text(
-                text = formatNoteDateTime(note.createdAt),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = formatNoteDate(note.createdAt),
+                fontSize = 9.5.sp,
+                letterSpacing = 1.2.sp,
+                color = c.ink3,
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 text = note.text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                fontFamily = EditorialSerif,
+                fontSize = 16.5.sp,
+                lineHeight = 29.sp,
+                color = c.ink,
             )
         }
     }
@@ -843,7 +1167,7 @@ private fun WholeNoteCard(note: NoteEntity) {
 private fun androidx.compose.foundation.lazy.LazyListScope.noteItems(notes: List<NoteEntity>) {
     val wholeNotes = notes.filter { it.stepId == null }.sortedByDescending { it.createdAt }
     if (wholeNotes.isEmpty()) return
-    item { PreviewSectionTitle("我的备注") }
+    item { EditorialSectionHeader("04", "我的备注") }
     itemsIndexed(wholeNotes, key = { _, note -> note.id }) { _, note ->
         WholeNoteCard(note = note)
     }
@@ -858,24 +1182,27 @@ private fun androidx.compose.foundation.lazy.LazyListScope.ingredientsContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 22.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "份量",
-                style = MaterialTheme.typography.titleMedium,
+                fontSize = 10.sp,
+                letterSpacing = 1.2.sp,
+                color = editorialColors().ink3,
                 modifier = Modifier.weight(1f),
             )
             ServingsStepper(servings, onServings)
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = "按 ${recipe.recipe.servings} 人份记录，已换算为 $servings 人份",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.tertiary,
-            modifier = Modifier.padding(horizontal = 16.dp),
+            fontSize = 10.5.sp,
+            letterSpacing = 0.2.sp,
+            color = editorialColors().ink3,
+            modifier = Modifier.padding(horizontal = 22.dp),
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
     }
 
     if (recipe.ingredients.isEmpty()) {
@@ -889,27 +1216,20 @@ private fun androidx.compose.foundation.lazy.LazyListScope.ingredientsContent(
                 item {
                     Text(
                         text = group,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 4.dp),
+                        fontSize = 9.5.sp,
+                        letterSpacing = 1.6.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = editorialColors().ink3,
+                        modifier = Modifier.padding(start = 22.dp, top = 18.dp, bottom = 2.dp),
                     )
                 }
             }
-            itemsIndexed(items) { index, item ->
+            itemsIndexed(items) { _, item ->
                 IngredientRow(
                     item = item,
                     baseServings = recipe.recipe.servings,
                     servings = servings,
                 )
-                if (index < items.size - 1) {
-                    Box(
-                        Modifier
-                            .padding(start = 20.dp)
-                            .fillMaxWidth()
-                            .height(0.5.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant),
-                    )
-                }
             }
         }
     }
@@ -919,17 +1239,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.ingredientsContent(
 
 @Composable
 private fun ServingsStepper(value: Int, onChange: (Int) -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         StepButton("−") { onChange(value - 1) }
         Text(
             text = "$value 人",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 6.dp),
+            fontSize = 13.sp,
+            letterSpacing = 0.2.sp,
+            color = editorialColors().ink,
+            modifier = Modifier.padding(horizontal = 8.dp),
         )
         StepButton("+") { onChange(value + 1) }
     }
@@ -944,29 +1261,55 @@ private fun StepButton(label: String, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = label,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Light,
+            color = editorialColors().ink2,
+        )
     }
 }
 
 @Composable
 private fun IngredientRow(item: IngredientEntity, baseServings: Int, servings: Int) {
+    val c = editorialColors()
     val amount = ingredientAmount(item, baseServings, servings)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 22.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = item.name,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f),
+            fontSize = 16.sp,
+            letterSpacing = 0.1.sp,
+            color = c.ink,
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp)
+                .height(12.dp)
+                .drawBehind {
+                    val y = size.height - 3.dp.toPx()
+                    drawLine(
+                        color = c.ink.copy(alpha = 0.24f),
+                        start = Offset(0f, y),
+                        end = Offset(size.width, y),
+                        strokeWidth = 1.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(
+                            floatArrayOf(1.dp.toPx(), 4.dp.toPx()),
+                            0f,
+                        ),
+                    )
+                },
         )
         Text(
             text = amount,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (amount == "适量" || amount == "少许") MaterialTheme.colorScheme.tertiary
-            else MaterialTheme.colorScheme.onSurface,
+            fontSize = 14.sp,
+            letterSpacing = 0.1.sp,
+            color = if (amount == "适量" || amount == "少许") c.accent else c.ink2,
         )
     }
 }
@@ -987,72 +1330,97 @@ private fun OriginalTextSection(
     expanded: Boolean,
     onToggle: () -> Unit,
 ) {
+    val c = editorialColors()
     val body = recipe.source?.textBody.orEmpty().ifBlank {
         recipe.source?.shareText.orEmpty()
     }
-    Column(modifier = Modifier.padding(top = 20.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 34.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onToggle)
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 22.dp),
+            verticalAlignment = Alignment.Bottom,
         ) {
             Text(
-                text = "原文",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f),
+                text = "03",
+                fontFamily = EditorialSerif,
+                fontSize = 12.sp,
+                letterSpacing = 0.8.sp,
+                color = c.accent,
+                modifier = Modifier.padding(bottom = 4.dp),
             )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = "原文",
+                fontFamily = EditorialSerif,
+                fontSize = 25.sp,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.3).sp,
+                color = c.ink,
+            )
+            Spacer(Modifier.weight(1f))
             Text(
                 text = if (expanded) "收起" else "展开",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
+                fontSize = 10.sp,
+                letterSpacing = 0.6.sp,
+                color = c.accent,
+                modifier = Modifier.padding(bottom = 4.dp),
             )
         }
+        Spacer(Modifier.height(8.dp))
+        Box(
+            Modifier
+                .padding(horizontal = 22.dp)
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(c.ink),
+        )
         if (expanded) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp)) {
                 if (body.isBlank()) {
                     Text(
                         text = "没有抓取到原文。可以在编辑页补充，或点来源条的原链接查看。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp,
+                        lineHeight = 21.sp,
+                        color = c.ink2,
                     )
                 } else {
                     SelectionContainer {
                         Text(
                             text = body,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 15.sp,
+                            lineHeight = 26.sp,
+                            color = c.ink,
                         )
                     }
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = "自动解析可能有遗漏。以原文和原视频为准。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.tertiary,
+                    fontSize = 10.5.sp,
+                    lineHeight = 17.sp,
+                    color = c.ink3,
                 )
             }
         }
+        Spacer(Modifier.height(4.dp))
     }
 }
 
 @Composable
 private fun EmptyInfoCard(text: String) {
-    Box(
+    val c = editorialColors()
+    Text(
+        text = text,
+        fontSize = 13.sp,
+        lineHeight = 21.sp,
+        color = c.ink2,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(20.dp),
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+            .padding(horizontal = 22.dp, vertical = 10.dp),
+    )
 }
 
 private data class StepMedia(

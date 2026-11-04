@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 仅在 API 26–28 用 MediaStore.insertImage 存二维码到相册；29+ 走 RELATIVE_PATH 不需要权限 -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     <uses-feature
         android:name="android.hardware.touchscreen"
@@ -14,6 +18,8 @@
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
+        <!-- 抖音登录页：把二维码存进相册后直接跳转抖音「扫一扫 → 相册」 -->
+        <package android:name="com.ss.android.ugc.aweme" />
     </queries>
 
     <application

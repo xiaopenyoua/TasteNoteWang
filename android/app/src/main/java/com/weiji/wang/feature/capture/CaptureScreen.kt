@@ -58,6 +58,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.weiji.wang.core.data.db.DraftEntity
 import com.weiji.wang.core.import.DouyinJsonParser
 import com.weiji.wang.core.import.DouyinWebViewParser
@@ -69,6 +71,7 @@ import com.weiji.wang.core.import.ImportResult
 import com.weiji.wang.core.import.LinkParser
 import com.weiji.wang.core.import.PreparedImport
 import com.weiji.wang.core.model.ImportState
+import com.weiji.wang.core.model.MediaKind
 import com.weiji.wang.core.model.Platform
 import com.weiji.wang.ui.LocalContainer
 import com.weiji.wang.ui.components.PageHeader
@@ -160,7 +163,10 @@ class CaptureViewModel(
                 current.content.copy(
                     requiresWebView = false,
                     fetchStatus = com.weiji.wang.core.model.FetchStatus.PARTIAL,
-                    message = "页面加载超时，已保留链接、封面和文字；视频可以稍后重试。",
+                    message = "等了约 40 秒仍没拿到视频直链（分享页风控或网络慢）。" +
+                        "链接、封面和文字已保存：可以点「重试」再收一次，" +
+                        "或先「去登录抖音」扫码保存登录态后再收；" +
+                        "也可以在抖音里把视频保存到相册，再用「分享 → 味记」导入视频。",
                 ),
             )
         }
@@ -174,7 +180,8 @@ class CaptureViewModel(
                 current.content.copy(
                     requiresWebView = false,
                     fetchStatus = com.weiji.wang.core.model.FetchStatus.PARTIAL,
-                    message = "页面没有加载成功（$reason）。已保留链接、封面和文字，视频可以稍后重试。",
+                    message = "分享页没有加载成功（$reason）。链接和文字已保存：" +
+                        "可以重试，或去登录抖音后再收；也可以在抖音里保存视频后分享到味记。",
                 ),
             )
         }
@@ -306,14 +313,15 @@ fun CaptureScreen(nav: NavHostController, initialText: String, initialUris: List
                 is CaptureState.Preparing -> StatusCard(title = "正在读取页面…", body = "本地解析，不上传你的链接。")
                 is CaptureState.NeedsWebView -> {
                     StatusCard(
-                        title = "正在用内置浏览器读取抖音",
-                        body = "抖音需要页面渲染才能拿到视频地址。首次可能需要登录，登录信息只保存在本机。",
+                        title = "正在用内置浏览器读取抖音分享页",
+                        body = "抖音的播放地址由页面自己签名请求，通常要十几秒；首次可能需要登录，登录信息只保存在本机。",
                     )
                     DouyinWebView(
                         url = s.content.webViewUrl ?: s.content.canonicalUrl,
                         fallbackUrl = s.content.canonicalUrl,
                         cookie = container.cookies.cookieFor(Platform.DOUYIN),
                         link = s.prepared.link,
+                        seo = s.content,
                         onExtracted = vm::onWebViewExtracted,
                         onTimeout = vm::onWebViewTimeout,
                         onFailed = vm::onWebViewFailed,
@@ -509,30 +517,40 @@ private fun stateLabel(state: String, error: String?): String = when (state) {
     else -> error ?: "失败"
 }
 
+/**
+ * document-start 注入（每个新文档都在页面脚本之前装好，reload 也不丢）：
+ * 抖音分享页用页面自己的安全 SDK 签名请求 iteminfo/detail，我们只被动读取响应体，
+ * 不重放签名、不替换页面响应（替换后页面拿不到数据，视频反而不会加载）。
+ */
 private const val HOOK_JS = """
 (function(){
   if (window.__weiji_hooked) return;
   window.__weiji_hooked = true;
   window.__weiji_bodies = [];
+  window.__weiji_urls = [];
+  var API = /\/(?:web\/api\/v2\/aweme\/iteminfo|aweme\/v1\/(?:web\/)?aweme\/(?:detail|post)|aweme\/detail|iteminfo)/;
+  function isApi(u) { try { return API.test(u || ''); } catch (e) { return false; } }
   function push(u, b) {
     try {
-      if (!u || !b) return;
-      if (u.indexOf('/aweme/') >= 0 || u.indexOf('detail') >= 0) {
-        window.__weiji_bodies.push(b);
-        if (window.__weiji_bodies.length > 12) window.__weiji_bodies.shift();
-      }
-    } catch(e) {}
+      if (!u || !isApi(u)) return;
+      window.__weiji_urls.push(u);
+      if (window.__weiji_urls.length > 12) window.__weiji_urls.shift();
+      if (!b) return;
+      window.__weiji_bodies.push(b);
+      if (window.__weiji_bodies.length > 12) window.__weiji_bodies.shift();
+    } catch (e) {}
   }
   var of = window.fetch;
   if (of) {
     window.fetch = function() {
-      return of.apply(this, arguments).then(function(resp){
+      var args = arguments;
+      return of.apply(this, args).then(function(resp){
         try {
-          var u = resp.url || '';
-          if (u.indexOf('/aweme/') >= 0 || u.indexOf('detail') >= 0) {
-            resp.clone().text().then(function(t){ push(u, t); });
+          var u = (resp && resp.url) || (args && args[0] && args[0].url) || '';
+          if (isApi(u)) {
+            resp.clone().text().then(function(t){ push(u, t); }).catch(function(){ push(u, ''); });
           }
-        } catch(e) {}
+        } catch (e) {}
         return resp;
       });
     };
@@ -548,15 +566,67 @@ private const val HOOK_JS = """
     x.addEventListener('load', function(){
       try {
         var u = x.__weiji_url || '';
-        if (u.indexOf('/aweme/') >= 0 || u.indexOf('detail') >= 0) {
-          push(u, x.responseText);
-        }
-      } catch(e) {}
+        if (!isApi(u)) return;
+        var b = '';
+        try {
+          if (!x.responseType || x.responseType === 'text') b = x.responseText;
+          else if (x.responseType === 'json') b = JSON.stringify(x.response);
+          else if (typeof x.response === 'string') b = x.response;
+        } catch (e) { b = ''; }
+        push(u, b);
+      } catch (e) {}
     });
     return os.apply(this, arguments);
   };
 })();
 """
+
+/**
+ * 一次探针把三路一起收回来：
+ * 1) XHR/fetch 响应体（iteminfo / detail / aweme_detail）；
+ * 2) `performance.getEntriesByType('resource')` 里的媒体直链（douyinvod / byteicdn / video/tos / .mp4）；
+ * 3) DOM 里 `<video>.currentSrc`。
+ *
+ * 分享页的播放器不一定自动播；先 muted + play() 静默触发一次 media 请求，
+ * 直链才会出现在 resource timing 里（2026-11-04 实测建议）。顺序必须先是 currentSrc，再读 performance。
+ */
+private const val PROBE_JS = """
+(function(){
+  try {
+    Array.from(document.querySelectorAll('video')).forEach(function(v){
+      try {
+        v.muted = true;
+        var p = v.play();
+        if (p && p.catch) p.catch(function(){});
+      } catch (e) {}
+    });
+    var vids = Array.from(document.querySelectorAll('video')).map(function(x){return x.currentSrc || x.src || x.getAttribute('src') || '';});
+    var srcs = Array.from(document.querySelectorAll('video source')).map(function(x){return x.src || '';});
+    var entries = performance.getEntriesByType('resource').map(function(e){return e.name;});
+    // 只认直连 CDN；/aweme/v1/play 是需要签名的跳转口，不能当视频直链候选
+    var media = entries.filter(function(n){ return /douyinvod|byteicdn|video\/tos|\.mp4/.test(n); });
+    var apis = entries.filter(function(n){ return /iteminfo|aweme\/detail|aweme\/post|aweme_detail|item_list/.test(n); });
+    var imgs = Array.from(document.querySelectorAll('img')).map(function(x){return x.currentSrc || x.src || '';});
+    var errText = '';
+    try { errText = (document.body && document.body.innerText) ? String(document.body.innerText).slice(0, 400) : ''; } catch (e) {}
+    return JSON.stringify({
+      videos: vids.concat(srcs).filter(Boolean),
+      images: imgs,
+      media: media,
+      apis: apis,
+      hooked: (window.__weiji_urls || []),
+      bodies: (window.__weiji_bodies || []).slice(-12),
+      err: /抱歉出错了|请尝试在抖音内观看|作品不存在/.test(errText),
+      html: document.documentElement.outerHTML
+    });
+  } catch (e) { return ''; }
+})();
+"""
+
+/** 探针间隔 / 次数：首次 2.5s，之后每 2.5s，最多覆盖约 35s，硬超时 45s。 */
+private const val PROBE_INTERVAL_MS = 2_500L
+private const val MAX_PROBE_ATTEMPTS = 14
+private const val WEBVIEW_TIMEOUT_MS = 45_000L
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -565,6 +635,7 @@ private fun DouyinWebView(
     fallbackUrl: String,
     cookie: String?,
     link: com.weiji.wang.core.import.ParsedLink,
+    seo: ExtractedContent,
     onExtracted: (ExtractedContent) -> Unit,
     onTimeout: () -> Unit,
     onFailed: (String) -> Unit,
@@ -574,9 +645,45 @@ private fun DouyinWebView(
     val requestLog = remember { java.util.concurrent.atomic.AtomicInteger(0) }
     val http = remember { HttpClients.create() }
     var done by remember { mutableStateOf(false) }
+    val probeStarted = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val replayed = remember { java.util.Collections.synchronizedSet(mutableSetOf<String>()) }
+    // 分享页在风控/非中国 IP 下会直接渲染错误页；这时换旧路径再试一轮（只换一次）
+    val switchedLegacy = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     var triedFallback by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
 
+    fun finish(content: ExtractedContent) {
+        if (done) return
+        done = true
+        onExtracted(content)
+    }
+
+    fun isNotePage(pageUrl: String?): Boolean =
+        pageUrl?.contains("/slides/") == true ||
+            pageUrl?.contains("/note/") == true ||
+            url.contains("/share/slides/") ||
+            link.shareText.contains("图文")
+
+    /**
+     * 视频链接只有拿到 `MediaKind.VIDEO` 才算成功：分享页 HTML 里通常带 og:image，
+     * 提前接受“只有封面”的结果就是线上那个「只保存了封面、没有视频」的 bug。
+     * 只有图文笔记才接受图片。
+     */
+    fun acceptParsed(content: ExtractedContent?, pageUrl: String?): ExtractedContent? {
+        val parsed = content ?: return null
+        val hasVideo = parsed.media.any { it.kind == MediaKind.VIDEO }
+        return if (isNotePage(pageUrl)) {
+            parsed.takeIf {
+                hasVideo || parsed.media.any { m ->
+                    m.kind == MediaKind.STEP || m.kind == MediaKind.PHOTO
+                }
+            }
+        } else {
+            parsed.takeIf { hasVideo }
+        }
+    }
+
+    /** 备用路径：用页面 Cookie 重放同一个接口（页面自己的签名请求我们无法伪造）。 */
     fun replayUrl(target: String): String? = runCatching {
         val mergedCookie = listOfNotNull(
             cookie,
@@ -584,8 +691,9 @@ private fun DouyinWebView(
         ).joinToString("; ").ifBlank { null }
         val builder = Request.Builder()
             .url(target)
-            .header("User-Agent", HttpClients.DESKTOP_UA)
-            .header("Referer", "https://www.douyin.com/")
+            .header("User-Agent", HttpClients.MOBILE_UA)
+            .header("Referer", "https://www.iesdouyin.com/")
+            .header("Accept", "*/*")
         if (mergedCookie != null) builder.header("Cookie", mergedCookie)
         http.newCall(builder.build()).execute().use { response ->
             android.util.Log.d(
@@ -614,7 +722,7 @@ private fun DouyinWebView(
             builder.header(key, value)
         }
         if (builder.build().header("User-Agent") == null) {
-            builder.header("User-Agent", HttpClients.DESKTOP_UA)
+            builder.header("User-Agent", HttpClients.MOBILE_UA)
         }
         if (mergedCookie != null) builder.header("Cookie", mergedCookie)
         http.newCall(builder.build()).execute().use { response ->
@@ -634,7 +742,9 @@ private fun DouyinWebView(
     }
 
     LaunchedEffect(url) {
-        delay(15_000)
+        // 分享页的 iteminfo 请求在页面加载后十几秒才发出（2026-11-04 实测约 13 秒），
+        // 太短的超时会停在“只有封面”的结果上。
+        delay(WEBVIEW_TIMEOUT_MS)
         if (!done) onTimeout()
     }
 
@@ -645,15 +755,26 @@ private fun DouyinWebView(
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.databaseEnabled = true
-                settings.userAgentString = HttpClients.DESKTOP_UA
+                // 分享页是按移动端设计的：桌面 UA 会被导向 www.douyin.com 的反爬壳
+                settings.userAgentString = HttpClients.MOBILE_UA
                 settings.mediaPlaybackRequiresUserGesture = false
                 settings.loadsImagesAutomatically = true
                 settings.blockNetworkImage = false
                 CookieManager.getInstance().setAcceptCookie(true)
+                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                 if (!cookie.isNullOrBlank()) {
+                    // CookieManager 一次只接受一对键值；整串塞进去只有第一对生效。
                     runCatching {
-                        CookieManager.getInstance().setCookie("https://www.douyin.com", cookie)
-                        CookieManager.getInstance().setCookie("https://www.iesdouyin.com", cookie)
+                        cookie.split(';').map { it.trim() }.filter { it.contains('=') }.forEach { pair ->
+                            CookieManager.getInstance().setCookie("https://www.douyin.com", pair)
+                            CookieManager.getInstance().setCookie("https://www.iesdouyin.com", pair)
+                        }
+                    }
+                }
+                // 页面首次导航后会 reload；onPageStarted 注入的钩子会随旧文档丢失。
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                    runCatching {
+                        WebViewCompat.addDocumentStartJavaScript(this, HOOK_JS, setOf("*"))
                     }
                 }
                 webViewClient = object : WebViewClient() {
@@ -663,18 +784,20 @@ private fun DouyinWebView(
                     ): WebResourceResponse? {
                         val requestUrl = request?.url?.toString().orEmpty()
                         val index = requestLog.getAndIncrement()
-                        if (index < 60 ||
-                            requestUrl.contains("aweme") ||
-                            requestUrl.contains("/detail") ||
-                            requestUrl.contains("play?")
-                        ) {
+                        if (index < 60) {
                             android.util.Log.d("WeijiImport", "req[$index]: ${requestUrl.take(220)}")
+                        }
+                        if (requestUrl.contains("aweme", true) ||
+                            requestUrl.contains("iteminfo", true) ||
+                            requestUrl.contains("detail", true) ||
+                            requestUrl.contains("play?", true)
+                        ) {
+                            android.util.Log.d("WeijiImport", "api/hit: ${requestUrl.take(220)}")
                         }
                         val isContentApi = requestUrl.contains("aweme/detail") ||
                             requestUrl.contains("aweme/post") ||
                             requestUrl.contains("iteminfo")
                         if (isContentApi) {
-                            android.util.Log.d("WeijiImport", "content api: ${requestUrl.take(180)}")
                             // 关键：不要把页面自己的签名请求替换成我们的响应，
                             // 否则页面拿不到数据、视频不会加载。后台重放只作为备用。
                             val req = request
@@ -687,26 +810,20 @@ private fun DouyinWebView(
                                             DouyinJsonParser.parse(body, link)
                                         }.getOrNull()
                                         if (parsed != null) {
-                                            view?.post {
-                                                if (!done) {
-                                                    done = true
-                                                    onExtracted(parsed)
-                                                }
-                                            }
+                                            view?.post { finish(parsed) }
                                         }
                                     }
                                 }.start()
                             }
                             return null
                         }
-                        request?.url?.toString()?.let { candidate ->
-                            if (candidate.contains("douyinvod", true) ||
-                                candidate.contains("byteicdn", true) ||
-                                candidate.contains("aweme/v1/play", true) ||
-                                candidate.contains("douyinpic", true)
-                            ) {
-                                captured += candidate
-                            }
+                        // 只收直连 CDN；aweme/v1/play 是签名跳转口，收进来只会换来 403
+                        if (requestUrl.contains("douyinvod", true) ||
+                            requestUrl.contains("byteicdn", true) ||
+                            requestUrl.contains("video/tos", true) ||
+                            requestUrl.contains("douyinpic", true)
+                        ) {
+                            captured += requestUrl
                         }
                         return null
                     }
@@ -717,6 +834,9 @@ private fun DouyinWebView(
                         favicon: android.graphics.Bitmap?,
                     ) {
                         super.onPageStarted(view, startedUrl, favicon)
+                        // 换页（分享页 → www.douyin.com 旧路径）后要允许重新起一轮探针，
+                        // 否则 probeStarted 会一直卡在第一次 onPageFinished 的 true。
+                        probeStarted.set(false)
                         android.util.Log.d("WeijiImport", "page start: ${startedUrl?.take(160)}")
                         view?.evaluateJavascript(HOOK_JS, null)
                     }
@@ -771,111 +891,152 @@ private fun DouyinWebView(
 
                     override fun onPageFinished(view: WebView?, finishedUrl: String?) {
                         if (done) return
-                        val js = """
-                            (function(){
-                              try {
-                                var v = Array.from(document.querySelectorAll('video')).map(function(x){return x.currentSrc || x.src || '';});
-                                var i = Array.from(document.querySelectorAll('img')).map(function(x){return x.currentSrc || x.src || '';});
-                                var html = document.documentElement.outerHTML;
-                                var bodies = (window.__weiji_bodies || []).slice(-12);
-                                var res = performance.getEntriesByType('resource').map(function(e){return e.name;}).filter(function(n){return /douyinvod|byteicdn|aweme\/v1\/play|aweme\/detail|aweme_detail/.test(n);});
-                                return JSON.stringify({videos:v, images:i, html:html, bodies:bodies, resources:res});
-                              } catch(e) { return ''; }
-                            })();
-                        """.trimIndent()
+                        if (!probeStarted.compareAndSet(false, true)) return
+                        val pageUrl = finishedUrl ?: url
 
+                        /**
+                         * 三路嗅探结果一次判定：先解析 JSON，再解析页面 HTML，
+                         * 最后用「只有直链」的合成路径。任何一步拿到 VIDEO 就收工。
+                         */
                         fun probe(attempt: Int) {
+                            if (done) return
                             runCatching {
-                                view?.evaluateJavascript(js) { raw ->
-                                val payload = runCatching {
-                                    (JSONTokener(raw).nextValue() as? String).orEmpty()
-                                }.getOrDefault("")
-                                val obj = runCatching { JSONObject(payload) }.getOrNull()
+                                view?.evaluateJavascript(PROBE_JS) { raw ->
+                                    val payload = runCatching {
+                                        (JSONTokener(raw).nextValue() as? String).orEmpty()
+                                    }.getOrDefault("")
+                                    val obj = runCatching { JSONObject(payload) }.getOrNull()
 
-                                var parsed: ExtractedContent? = null
-                                val bodies = obj?.optJSONArray("bodies")
-                                android.util.Log.d(
-                                    "WeijiImport",
-                                    "probe: bodies=${bodies?.length() ?: 0} html=${obj?.optString("html")?.length ?: 0}",
-                                )
-                                bodies?.let { arr ->
-                                    for (i in arr.length() - 1 downTo 0) {
-                                        val rawBody = arr.optString(i)
-                                        android.util.Log.d(
-                                            "WeijiImport",
-                                            "body[$i]: ${rawBody.length} ${rawBody.take(90)}",
-                                        )
-                                        parsed = DouyinJsonParser.parse(rawBody, link)
-                                        if (parsed != null) break
-                                    }
-                                }
-                                if (parsed == null) {
-                                    val resources = obj?.optJSONArray("resources")
+                                    var parsed: ExtractedContent? = null
+                                    val bodies = obj?.optJSONArray("bodies")
                                     android.util.Log.d(
                                         "WeijiImport",
-                                        "resources=${resources?.length() ?: 0}",
+                                        "probe[$attempt]: bodies=${bodies?.length() ?: 0} " +
+                                            "html=${obj?.optString("html")?.length ?: 0}",
                                     )
-                                    resources?.let { arr ->
-                                        for (i in 0 until arr.length()) {
-                                            val u = arr.optString(i)
-                                            android.util.Log.d("WeijiImport", "res[$i]: ${u.take(160)}")
-                                            if (u.contains("aweme/detail") || u.contains("aweme_detail")) {
-                                                Thread {
-                                                    val detailBody = replayUrl(u)
-                                                    if (!detailBody.isNullOrEmpty()) {
-                                                        android.util.Log.d(
-                                                            "WeijiImport",
-                                                            "resource replay: ${detailBody.length}",
-                                                        )
-                                                        val c = runCatching {
-                                                            DouyinJsonParser.parse(detailBody, link)
-                                                        }.getOrNull()
-                                                        if (c != null) {
-                                                            view?.post {
-                                                                if (!done) {
-                                                                    done = true
-                                                                    onExtracted(c)
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }.start()
+
+                                    // 1) XHR/fetch 响应体：iteminfo 的 item_list、detail 的 aweme_detail
+                                    bodies?.let { arr ->
+                                        for (i in arr.length() - 1 downTo 0) {
+                                            val body = arr.optString(i)
+                                            if (body.length < 32) continue
+                                            android.util.Log.d(
+                                                "WeijiImport",
+                                                "body[$i]: ${body.length} ${body.take(90)}",
+                                            )
+                                            parsed = acceptParsed(
+                                                runCatching {
+                                                    DouyinJsonParser.parse(body, link)
+                                                }.getOrNull(),
+                                                pageUrl,
+                                            )
+                                            if (parsed != null) break
+                                        }
+                                    }
+
+                                    // 2) 媒体直链：performance 资源 + DOM video.currentSrc + 拦截到的请求
+                                    val sniffed = linkedSetOf<String>()
+                                    fun collect(array: org.json.JSONArray?) {
+                                        if (array == null) return
+                                        for (i in 0 until array.length()) {
+                                            val value = array.optString(i)
+                                            if (value.startsWith("http")) sniffed += value
+                                        }
+                                    }
+                                    collect(obj?.optJSONArray("media"))
+                                    collect(obj?.optJSONArray("videos"))
+                                    captured.forEach { sniffed += it }
+
+                                    if (parsed == null) {
+                                        val combined = buildString {
+                                            append(obj?.optString("html").orEmpty()).append('\n')
+                                            sniffed.forEach { append(it).append('\n') }
+                                            val images = obj?.optJSONArray("images")
+                                            if (images != null) {
+                                                for (i in 0 until images.length()) {
+                                                    append(images.optString(i)).append('\n')
+                                                }
                                             }
                                         }
+                                        parsed = acceptParsed(
+                                            runCatching {
+                                                DouyinWebViewParser.parse(combined, pageUrl, link)
+                                            }.getOrNull(),
+                                            pageUrl,
+                                        )
                                     }
-                                    val combined = buildString {
-                                        append(obj?.optString("html").orEmpty())
-                                        append('\n')
-                                        obj?.optJSONArray("videos")?.let { arr ->
-                                            for (i in 0 until arr.length()) append(arr.optString(i)).append('\n')
-                                        }
-                                        obj?.optJSONArray("images")?.let { arr ->
-                                            for (i in 0 until arr.length()) append(arr.optString(i)).append('\n')
-                                        }
-                                        resources?.let { arr ->
-                                            for (i in 0 until arr.length()) append(arr.optString(i)).append('\n')
-                                        }
-                                        captured.forEach { append(it).append('\n') }
+
+                                    // 3) 只有直链、没有 JSON：用分享页真实播放的那条地址 + SEO 标题/封面合成
+                                    if (parsed == null && sniffed.isNotEmpty()) {
+                                        parsed = acceptParsed(
+                                            runCatching {
+                                                DouyinJsonParser.synthesize(sniffed, seo, link, pageUrl)
+                                            }.getOrNull(),
+                                            pageUrl,
+                                        )
                                     }
-                                    parsed = DouyinWebViewParser.parse(
-                                        combined,
-                                        finishedUrl ?: url,
-                                        link,
-                                    )
+
+                                    // 分享页渲染出「抱歉出错了 / 请尝试在抖音内观看 / 作品不存在」时，
+                                    // 换旧路径 www.douyin.com/{video|note}/{id} 再试一轮；两轮都空才走超时兜底。
+                                    if (parsed == null && obj?.optBoolean("err") == true &&
+                                        switchedLegacy.compareAndSet(false, true)
+                                    ) {
+                                        val legacyId = link.contentId ?: Regex("""/(?:video|note|slides)/(\d{15,25})""")
+                                            .find(pageUrl)?.groupValues?.get(1)
+                                        if (legacyId != null) {
+                                            val legacy = if (isNotePage(pageUrl)) {
+                                                "https://www.douyin.com/note/$legacyId"
+                                            } else {
+                                                "https://www.douyin.com/video/$legacyId"
+                                            }
+                                            android.util.Log.d(
+                                                "WeijiImport",
+                                                "share page blocked, retry legacy: $legacy",
+                                            )
+                                            view?.loadUrl(legacy)
+                                        }
+                                    }
+
+                                    if (parsed != null) {
+                                        finish(parsed!!)
+                                        return@evaluateJavascript
+                                    }
+
+                                    // JSON 没拿到（例如 200/0 字节）：把页面发出的接口 URL 拿去重放一次
+                                    if (bodies == null || bodies.length() == 0) {
+                                        val apiList = linkedSetOf<String>()
+                                        collectUrls(obj?.optJSONArray("apis"), apiList)
+                                        collectUrls(obj?.optJSONArray("hooked"), apiList)
+                                        apiList.forEach { apiUrl ->
+                                            if (!replayed.add(apiUrl)) return@forEach
+                                            Thread {
+                                                val body = replayUrl(apiUrl)
+                                                if (body.isNullOrEmpty()) return@Thread
+                                                android.util.Log.d(
+                                                    "WeijiImport",
+                                                    "api replay: ${body.length}",
+                                                )
+                                                val content = acceptParsed(
+                                                    runCatching {
+                                                        DouyinJsonParser.parse(body, link)
+                                                    }.getOrNull(),
+                                                    pageUrl,
+                                                )
+                                                if (content != null) {
+                                                    view?.post { finish(content) }
+                                                }
+                                            }.start()
+                                        }
+                                    }
+
+                                    if (attempt < MAX_PROBE_ATTEMPTS) {
+                                        // 页面可能还在等 iteminfo；继续探测，直到 45s 总超时。
+                                        view?.postDelayed(
+                                            { probe(attempt + 1) },
+                                            PROBE_INTERVAL_MS,
+                                        )
+                                    }
                                 }
-                                if (parsed != null && !done) {
-                                    done = true
-                                    onExtracted(parsed!!)
-                                } else if (attempt < 2) {
-                                    view?.postDelayed({ probe(attempt + 1) }, 4_000)
-                                } else if ((obj?.optJSONArray("resources")?.length() ?: 0) > 0) {
-                                    // 页面发出了 detail 请求但没有可解析内容：判定为风控/需要登录
-                                    if (!done) {
-                                        done = true
-                                        onFailed("视频需要登录抖音后重试")
-                                    }
-                                }
-                            }
                             }.onFailure {
                                 android.util.Log.d("WeijiImport", "probe failed: ${it.message}")
                                 if (!done) {
@@ -884,7 +1045,7 @@ private fun DouyinWebView(
                                 }
                             }
                         }
-                        view?.postDelayed({ probe(0) }, 2_500)
+                        view?.postDelayed({ probe(0) }, PROBE_INTERVAL_MS)
                     }
                 }
                 loadUrl(url)
@@ -893,4 +1054,13 @@ private fun DouyinWebView(
         },
         update = { it -> webView = it },
     )
+}
+
+/** 小工具：把 JSON 数组里的 URL 收进集合（JVM 上 optString 对 null 安全）。 */
+private fun collectUrls(array: org.json.JSONArray?, target: MutableSet<String>) {
+    if (array == null) return
+    for (i in 0 until array.length()) {
+        val value = array.optString(i)
+        if (value.startsWith("http")) target += value
+    }
 }

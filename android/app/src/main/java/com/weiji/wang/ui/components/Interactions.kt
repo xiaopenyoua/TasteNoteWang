@@ -234,7 +234,7 @@ fun CircleIconButton(
     }
 }
 
-/** 长按菜谱卡后的底部菜单：今晚做这道 / 收藏 / 删除。 */
+/** 长按菜谱卡后的底部菜单：加入今天食谱 / 收藏 / 删除。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeActionSheet(
@@ -264,12 +264,12 @@ fun RecipeActionSheet(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "加入今天吃什么，并把食材加入采购",
+                text = "把食材同步加入今天的采购清单",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(12.dp))
-            SheetAction(text = "今晚做这道", onClick = onAddToday)
+            SheetAction(text = "加入今天食谱", onClick = onAddToday)
             SheetAction(
                 text = if (favorite) "取消收藏" else "收藏",
                 onClick = onToggleFavorite,

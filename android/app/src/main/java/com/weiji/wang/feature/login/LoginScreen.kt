@@ -1,24 +1,44 @@
 package com.weiji.wang.feature.login
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ContentResolver
+import android.content.ContentValues
+import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
+import android.util.Base64
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -26,6 +46,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -36,15 +57,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import com.weiji.wang.core.import.HttpClients
 import com.weiji.wang.core.model.Platform
@@ -53,7 +80,16 @@ import com.weiji.wang.ui.components.CircleIconButton
 import com.weiji.wang.ui.components.PageHeader
 import com.weiji.wang.ui.components.PrimaryButton
 import com.weiji.wang.ui.components.SecondaryButton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import org.json.JSONTokener
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.coroutines.resume
 
 private data class LoginTarget(
     val platform: Platform,
@@ -63,18 +99,22 @@ private data class LoginTarget(
     val cookieUrls: List<String>,
     val authKeys: List<String>,
     val notice: String? = null,
+    val subtitle: String = "登录信息只保存在本机，用于解析你主动提交的链接",
 )
 
 private fun targetOf(key: String): LoginTarget = when (key.uppercase()) {
     "DOUYIN" -> LoginTarget(
         platform = Platform.DOUYIN,
         title = "抖音",
+        // 移动版登录页只有验证码/密码，扫码入口只在桌面版；UA 只在登录页切桌面。
         startUrl = "https://www.douyin.com/login_page?service=https%3A%2F%2Fwww.douyin.com%2F",
-        userAgent = HttpClients.MOBILE_UA,
+        userAgent = HttpClients.DESKTOP_UA,
         cookieUrls = listOf("https://www.douyin.com", "https://douyin.com"),
         authKeys = listOf("sessionid", "sessionid_ss", "sid_tt", "sid_guard"),
-        notice = "抖音网页登录在电脑上是扫码 / 验证码；手机里可以用验证码登录。" +
-            "如果页面一直登录不上，用电脑浏览器登录抖音后复制 Cookie，点下面的「手动粘贴 Cookie」。",
+        notice = "推荐扫码：在页面顶部切到「扫码登录」，点应用里的「保存二维码到相册」，" +
+            "再打开抖音「扫一扫」→ 相册选择。同一台手机也能完成。" +
+            "扫码登录不会让抖音 App 掉线；短信验证码会被当成新设备，可能要求二次扫码，也可能让 App 退出登录。",
+        subtitle = "不登录也能解析大多数公开视频；登录只针对受限内容",
     )
 
     "XIAOHONGSHU" -> LoginTarget(
@@ -128,6 +168,14 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var manualCookie by rememberSaveable { mutableStateOf("") }
 
+    val scope = rememberCoroutineScope()
+    var savingQr by remember { mutableStateOf(false) }
+    // 抖音二维码直接从登录页 DOM 里取 data URI，不截整屏：相册里只有二维码，识别率更高。
+    var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var qrSrc by remember { mutableStateOf("") }
+    var qrError by remember { mutableStateOf<String?>(null) }
+    var showWebLogin by rememberSaveable { mutableStateOf(false) }
+
     DisposableEffect(Unit) {
         onDispose {
             runCatching { webView?.stopLoading(); webView?.destroy() }
@@ -155,10 +203,122 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
         if (!detected && !saved) slowHint = true
     }
 
+    // 桌面版登录页在 mount 时就会请求二维码；轮询 DOM 拿它的 data URI，二维码刷新时自动跟着换。
+    LaunchedEffect(target, pageLoaded, webView) {
+        if (target.platform != Platform.DOUYIN) return@LaunchedEffect
+        var waited = 0
+        while (true) {
+            val view = webView
+            if (pageLoaded && view != null) {
+                val src = runCatching { view.evaluateString(QR_IMAGE_JS) }.getOrNull().orEmpty()
+                if (src.isNotBlank() && src != qrSrc) {
+                    val decoded = decodeQrDataUri(src)?.let { raw ->
+                        // 原图 128px，放大 4 倍用最近邻保持模块边缘锐利；相册里的图也直接用这份。
+                        if (raw.width < 480) {
+                            Bitmap.createScaledBitmap(raw, raw.width * 4, raw.height * 4, false)
+                        } else {
+                            raw
+                        }
+                    }
+                    if (decoded != null) {
+                        qrBitmap = decoded
+                        qrSrc = src
+                        qrError = null
+                        waited = 0
+                    }
+                } else if (qrBitmap == null) {
+                    waited += 1
+                    if (waited > 12) {
+                        qrError = "二维码没有出来，点「刷新二维码」重试"
+                    }
+                }
+            }
+            delay(1_200)
+        }
+    }
+
+
+    fun saveQrToGallery(bitmap: Bitmap) {
+        if (savingQr) return
+        savingQr = true
+        val name = "味记-抖音登录二维码-" + qrTimestamp()
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { saveBitmapToGallery(context, bitmap, name) }
+            }
+            savingQr = false
+            result.fold(
+                onSuccess = { uri ->
+                    Toast.makeText(
+                        context,
+                        if (uri != null) "已存到相册：打开抖音 → 扫一扫 → 相册选择"
+                        else "保存失败：系统相册没有返回可写入的位置",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                },
+                onFailure = { error ->
+                    Toast.makeText(
+                        context,
+                        "保存失败：${error.message ?: "相册不可写"}",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                },
+            )
+        }
+    }
+
+    /** 保存的是二维码原图（放大 4 倍保持模块边缘锐利），不是整屏截图。 */
+    fun captureAndSaveQr() {
+        val qr = qrBitmap
+        if (qr == null) {
+            Toast.makeText(context, "二维码还没出来，等一秒再试或点刷新", Toast.LENGTH_SHORT).show()
+            return
+        }
+        saveQrToGallery(qr)
+    }
+
+    val writePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            captureAndSaveQr()
+        } else {
+            Toast.makeText(context, "没有相册写入权限，保存不了二维码", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun requestSaveQr() {
+        if (!pageLoaded) {
+            Toast.makeText(context, "页面还没加载完，等二维码出来再保存", Toast.LENGTH_SHORT).show()
+            return
+        }
+        // API 29 起走 MediaStore 的 RELATIVE_PATH，不再需要存储权限。
+        val needsLegacyPermission = Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            ) != PackageManager.PERMISSION_GRANTED
+        if (needsLegacyPermission) {
+            writePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            captureAndSaveQr()
+        }
+    }
+
+    fun openDouyinApp() {
+        val launch = context.packageManager.getLaunchIntentForPackage(DOUYIN_PACKAGE)
+        if (launch == null) {
+            Toast.makeText(context, "未安装抖音", Toast.LENGTH_SHORT).show()
+            return
+        }
+        runCatching { context.startActivity(launch) }
+            .onFailure { Toast.makeText(context, "未安装抖音", Toast.LENGTH_SHORT).show() }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         PageHeader(
             title = "登录${target.title}",
-            subtitle = "登录信息只保存在本机，用于解析你主动提交的链接",
+            subtitle = target.subtitle,
             actions = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircleIconButton(
@@ -167,6 +327,9 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
                         onClick = {
                             detected = false
                             slowHint = false
+                            qrBitmap = null
+                            qrSrc = ""
+                            qrError = null
                             pageLoaded = false
                             webView?.reload()
                         },
@@ -184,11 +347,20 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(2.dp))
         }
 
-        AndroidView(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            factory = { ctx ->
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            AndroidView(
+                // 桌面版登录页在 <900px 视口会把二维码面板整个省掉（2026-11-04 实测：
+                // 390/768 宽无 QR，900/1024 宽有）。所以扫码模式下给 WebView 一个 1024dp
+                // 的宽视口再完全透明盖住；页面照常跑 JS/轮询，只是不显示。
+                modifier = if (target.platform == Platform.DOUYIN && !showWebLogin) {
+                    Modifier
+                        .requiredWidth(1024.dp)
+                        .requiredHeight(900.dp)
+                        .alpha(0f)
+                } else {
+                    Modifier.fillMaxSize()
+                },
+                factory = { ctx ->
                 WebView(ctx).apply {
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
@@ -233,10 +405,49 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
                     webView = this
                 }
             },
-            update = { webView = it },
-        )
+                update = { view ->
+                    webView = view
+                    // 二维码面板盖在上面时禁用底层 WebView 的触控，避免点击穿透到桌面登录页。
+                    view.isEnabled = target.platform != Platform.DOUYIN || showWebLogin
+                },
+            )
+            if (target.platform == Platform.DOUYIN && !showWebLogin) {
+                DouyinQrPane(
+                    qr = qrBitmap,
+                    pageLoaded = pageLoaded,
+                    error = qrError,
+                    saving = savingQr,
+                    onSave = { requestSaveQr() },
+                    onOpenDouyin = { openDouyinApp() },
+                    onRefresh = {
+                        qrBitmap = null
+                        qrSrc = ""
+                        qrError = null
+                        detected = false
+                        pageLoaded = false
+                        webView?.reload()
+                    },
+                    onUseWeb = { showWebLogin = true },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                )
+            }
+        }
 
         Column(modifier = Modifier.padding(16.dp)) {
+            if (target.platform == Platform.DOUYIN && showWebLogin) {
+                Text(
+                    text = "← 返回扫码登录",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showWebLogin = false }
+                        .padding(vertical = 6.dp),
+                )
+                Spacer(Modifier.height(6.dp))
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
@@ -404,6 +615,114 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
     }
 }
 
+/** 抖音扫码登录：二维码由桌面版登录页生成，这里只负责展示与保存，页面继续在底层轮询扫码结果。 */
+@Composable
+private fun DouyinQrPane(
+    qr: Bitmap?,
+    pageLoaded: Boolean,
+    error: String?,
+    saving: Boolean,
+    onSave: () -> Unit,
+    onOpenDouyin: () -> Unit,
+    onRefresh: () -> Unit,
+    onUseWeb: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "扫码登录",
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "打开抖音「扫一扫」，或先保存到相册再从相册选择。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(16.dp))
+        Box(
+            modifier = Modifier
+                .size(240.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(ComposeColor.White)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
+                .padding(10.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (qr != null) {
+                Image(
+                    bitmap = qr.asImageBitmap(),
+                    contentDescription = "抖音登录二维码",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                )
+            } else {
+                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.5.dp)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = when {
+                error != null -> error
+                qr != null -> "二维码 2 分钟内有效，过期后会自动换新"
+                pageLoaded -> "正在生成二维码…"
+                else -> "正在打开抖音登录页…"
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = if (error != null) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            QrAction(
+                text = if (saving) "正在保存…" else "保存到相册",
+                enabled = qr != null && !saving,
+                onClick = onSave,
+            )
+            QrAction(
+                text = "打开抖音",
+                enabled = true,
+                onClick = onOpenDouyin,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "同一台手机也能完成：保存到相册 → 打开抖音 → 扫一扫 → 相册选择。" +
+                "扫码登录不会让抖音 App 掉线；短信验证码会被当成新设备，可能要求二次扫码，" +
+                "也可能让抖音 App 退出登录。",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(14.dp))
+        Text(
+            text = "刷新二维码",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onRefresh)
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+        )
+        Text(
+            text = "改用网页登录（验证码 / 密码）",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onUseWeb)
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+        )
+    }
+}
+
 private val browserSchemes = setOf("http", "https", "about", "data", "javascript", "file", "blob")
 
 /**
@@ -475,3 +794,114 @@ private fun clearPlatformCookies(target: LoginTarget) {
         }
     }
 }
+
+/** 桌面版登录页把二维码渲染成 data:image/png;base64 的 <img>，直接取原图比截屏干净。 */
+private const val QR_IMAGE_JS = """
+(function () {
+  try {
+    var img = document.querySelector('#douyin_login_comp_scan_code img[aria-label="二维码"]')
+      || document.querySelector('#douyin_login_comp_scan_code img')
+      || document.querySelector('img[aria-label="二维码"]');
+    if (!img) return '';
+    var src = img.getAttribute('src') || img.src || '';
+    return src.indexOf('data:image') === 0 ? src : '';
+  } catch (e) { return ''; }
+})();
+"""
+
+private suspend fun WebView.evaluateString(js: String): String? =
+    suspendCancellableCoroutine { continuation ->
+        evaluateJavascript(js) { raw ->
+            if (continuation.isActive) {
+                val value = runCatching {
+                    (JSONTokener(raw).nextValue() as? String)?.takeIf { it.isNotBlank() }
+                }.getOrNull()
+                continuation.resume(value)
+            }
+        }
+    }
+
+private fun decodeQrDataUri(src: String): Bitmap? {
+    val marker = "base64,"
+    val index = src.indexOf(marker)
+    if (index < 0) return null
+    return runCatching {
+        val bytes = Base64.decode(src.substring(index + marker.length), Base64.DEFAULT)
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }.getOrNull()
+}
+
+/** 抖音「扫一扫 → 相册」只认系统相册里的图片，所以二维码要落到这里。 */
+private const val DOUYIN_PACKAGE = "com.ss.android.ugc.aweme"
+private const val QR_ALBUM_DIR = "Pictures/味记"
+
+private fun qrTimestamp(): String =
+    SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+
+@Suppress("DEPRECATION")
+private fun saveBitmapToGallery(context: Context, bitmap: Bitmap, name: String): Uri? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        saveViaMediaStore(context.contentResolver, bitmap, name)
+    } else {
+        MediaStore.Images.Media
+            .insertImage(context.contentResolver, bitmap, name, QR_ALBUM_DIR)
+            ?.let(Uri::parse)
+    }
+
+/** API 29+：RELATIVE_PATH 直接进 Pictures/味记；写完再清 IS_PENDING，相册里不会出现半张图。 */
+private fun saveViaMediaStore(resolver: ContentResolver, bitmap: Bitmap, name: String): Uri {
+    val pending = ContentValues().apply {
+        put(MediaStore.Images.Media.DISPLAY_NAME, "$name.png")
+        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+        put(MediaStore.Images.Media.RELATIVE_PATH, QR_ALBUM_DIR)
+        put(MediaStore.Images.Media.IS_PENDING, 1)
+    }
+    val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+    val uri = resolver.insert(collection, pending) ?: error("相册不可写")
+    try {
+        val stream = resolver.openOutputStream(uri) ?: error("相册不可写")
+        stream.use { out ->
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) error("二维码编码失败")
+        }
+        resolver.update(
+            uri,
+            ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) },
+            null,
+            null,
+        )
+    } catch (t: Throwable) {
+        runCatching { resolver.delete(uri, null, null) }
+        throw t
+    }
+    return uri
+}
+
+/** 二维码相关的两枚动作按钮：等宽、最小 48dp 触控高度，未就绪时置灰不可点。 */
+@Composable
+private fun RowScope.QrAction(text: String, enabled: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .heightIn(min = 48.dp)
+            .clip(shape)
+            .border(
+                1.dp,
+                if (enabled) MaterialTheme.colorScheme.outline
+                else MaterialTheme.colorScheme.outlineVariant,
+                shape,
+            )
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+

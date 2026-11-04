@@ -112,7 +112,7 @@ MediaDownloader（Range + .part + rename）
 | 需登录 | 状态 `NEEDS_LOGIN`，引导 WebView 登录 |
 | 风控 | 熔断当前导入，提示稍后或手动保存导入 |
 | 媒体下载失败 | 保留已成功媒体；`PARTIAL` |
-| WebView 渲染崩溃 | `runCatching` + 15s 超时 + 保留 JSON-LD 内容 |
+| WebView 渲染崩溃 | `runCatching` + 45s 超时 + 保留 JSON-LD 内容 |
 | 空间不足 | 下载前检查，跳过并提示 |
 
 ## 7. 已知限制与后续

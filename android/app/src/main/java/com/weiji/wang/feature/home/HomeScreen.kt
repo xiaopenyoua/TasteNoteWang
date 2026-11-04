@@ -258,7 +258,7 @@ private fun MenuEmptyCard(onGoRecipes: () -> Unit) {
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "在菜谱详情或长按菜谱，点「今晚做这道」",
+            text = "长按菜谱卡片，选择「加入今天食谱」",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

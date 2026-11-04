@@ -114,6 +114,7 @@ class ImportCoordinator(
         val savedMedia = mutableListOf<MediaEntity>()
         var coverPath: String? = null
         var partial = content.fetchStatus != FetchStatus.OK
+        var videoFailure: String? = null
         var downloadedVideo: File? = null
 
         val candidates = content.media.sortedBy {
@@ -177,7 +178,10 @@ class ImportCoordinator(
                                 ).copy(durationMs = duration, mime = "video/mp4")
                             }
                             is DownloadOutcome.Skipped -> partial = true
-                            is DownloadOutcome.Failed -> partial = true
+                            is DownloadOutcome.Failed -> {
+                                partial = true
+                                videoFailure = outcome.reason
+                            }
                         }
                     }
                     else -> Unit
@@ -319,7 +323,15 @@ class ImportCoordinator(
         return@withContext ImportResult(
             recipeId = recipeId,
             partial = finalState != ImportState.READY,
-            message = content.message ?: if (finalState == ImportState.PARTIAL) "部分内容已保存，可手动补充" else null,
+            // 视频失败原因必须让用户看到：不能被解析阶段的提示文案盖掉。
+            message = when {
+                videoFailure != null && !content.message.isNullOrBlank() ->
+                    "${content.message}；视频下载失败（$videoFailure），封面和文字已保存"
+                videoFailure != null -> "视频下载失败（$videoFailure），封面和文字已保存"
+                !content.message.isNullOrBlank() -> content.message
+                finalState == ImportState.PARTIAL -> "部分内容已保存，可手动补充"
+                else -> null
+            },
         )
     }
 

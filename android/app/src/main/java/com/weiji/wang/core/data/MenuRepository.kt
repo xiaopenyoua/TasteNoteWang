@@ -51,7 +51,7 @@ class MenuRepository(
     }
 
     /**
-     * 今晚做这道：写当天菜单 + 快照 + 封面，按份量写采购行，并更新 lastCookedAt。
+     * 加入今天食谱：写当天菜单 + 快照 + 封面，按份量写采购行，并更新 lastCookedAt。
      * 同一天重复加入是幂等的，不重复插入、不重复写采购。
      */
     suspend fun addToday(recipeId: String, servings: Int? = null): Boolean {

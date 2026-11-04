@@ -47,7 +47,7 @@ related:
 
 ### 导入
 
-- WebView 只在抖音需要时创建，1dp 隐藏；15s 超时销毁。
+- WebView 只在抖音需要时创建，1dp 隐藏；45s 超时销毁。
 - 下载单并发、64KB buffer、Range 续传；不转码。
 - 图片采样解码（`inSampleSize`）+ WebP q85，长边 1600；封面目标 480×270。
 - 解析/下载在 `Dispatchers.IO`，UI 只收进度。
