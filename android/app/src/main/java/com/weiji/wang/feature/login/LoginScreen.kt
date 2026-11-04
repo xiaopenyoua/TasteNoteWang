@@ -9,6 +9,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,11 +22,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -33,11 +36,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
@@ -64,10 +69,12 @@ private fun targetOf(key: String): LoginTarget = when (key.uppercase()) {
     "DOUYIN" -> LoginTarget(
         platform = Platform.DOUYIN,
         title = "抖音",
-        startUrl = "https://www.douyin.com/",
+        startUrl = "https://www.douyin.com/login_page?service=https%3A%2F%2Fwww.douyin.com%2F",
         userAgent = HttpClients.MOBILE_UA,
         cookieUrls = listOf("https://www.douyin.com", "https://douyin.com"),
         authKeys = listOf("sessionid", "sessionid_ss", "sid_tt", "sid_guard"),
+        notice = "抖音网页登录在电脑上是扫码 / 验证码；手机里可以用验证码登录。" +
+            "如果页面一直登录不上，用电脑浏览器登录抖音后复制 Cookie，点下面的「手动粘贴 Cookie」。",
     )
 
     "XIAOHONGSHU" -> LoginTarget(
@@ -88,7 +95,8 @@ private fun targetOf(key: String): LoginTarget = when (key.uppercase()) {
         userAgent = HttpClients.MOBILE_UA,
         cookieUrls = listOf("https://passport.bilibili.com", "https://www.bilibili.com"),
         authKeys = listOf("SESSDATA"),
-        notice = "B 站使用移动版 H5 登录，只支持手机号 / 密码；本应用不提供扫码登录。",
+        notice = "B 站使用移动版 H5 登录，支持手机号 / 账号密码。" +
+            "页面上的协议说明没有单独的勾选框，填好手机号和验证码点「登录」即视为同意。",
     )
 
     else -> LoginTarget(
@@ -116,6 +124,9 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
         )
     }
     var slowHint by remember { mutableStateOf(false) }
+    var showManual by rememberSaveable { mutableStateOf(false) }
+    var showHelp by rememberSaveable { mutableStateOf(false) }
+    var manualCookie by rememberSaveable { mutableStateOf("") }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -196,7 +207,7 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             pageLoaded = true
-                            view?.evaluateJavascript(viewportHeightPatch, null)
+                            view?.evaluateJavascript(pagePatch, null)
                         }
 
                         override fun shouldOverrideUrlLoading(
@@ -226,29 +237,6 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
         )
 
         Column(modifier = Modifier.padding(16.dp)) {
-            target.notice?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.tertiary,
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-            Text(
-                text = "在页面里完成登录，然后点下面按钮。味记不会读取你的账号或密码，只保存平台发放的认证 Cookie。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (slowHint && !detected) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = "还没有检测到认证 Cookie。若页面已完成登录，请稍等或点右上角刷新；" +
-                        "仍失败时，该平台可能限制了网页登录。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
@@ -269,6 +257,71 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = if (showManual) "收起手动粘贴" else "页面登录不了？手动粘贴 Cookie",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { showManual = !showManual }
+                    .padding(vertical = 4.dp),
+            )
+            if (showManual) {
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = manualCookie,
+                    onValueChange = { manualCookie = it },
+                    minLines = 3,
+                    maxLines = 6,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    textStyle = MaterialTheme.typography.bodySmall,
+                    placeholder = {
+                        Text(
+                            "在电脑浏览器登录后，从开发者工具里复制完整 Cookie 粘贴到这里。",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    },
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "保存这段 Cookie",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (manualCookie.isBlank()) MaterialTheme.colorScheme.tertiary
+                    else MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(enabled = manualCookie.isNotBlank()) {
+                            val raw = manualCookie.trim()
+                            if (!hasAuthCookie(raw, target.authKeys)) {
+                                Toast.makeText(
+                                    context,
+                                    "这段 Cookie 里没有 ${target.authKeys.first()}，请确认复制完整",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            } else {
+                                setCookiesToWebView(target.cookieUrls, raw)
+                                container.cookies.saveWithTime(
+                                    target.platform,
+                                    raw,
+                                    System.currentTimeMillis(),
+                                )
+                                detected = true
+                                saved = true
+                                showManual = false
+                                Toast.makeText(
+                                    context,
+                                    "已保存手动粘贴的 Cookie",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        }
+                        .padding(vertical = 4.dp),
                 )
             }
             Spacer(Modifier.height(10.dp))
@@ -312,12 +365,41 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
                     )
                 }
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
-                text = "提示：登录态会过期。解析突然失败时，回来重新登录一次即可。",
+                text = if (showHelp) "收起说明" else "说明",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.tertiary,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { showHelp = !showHelp }
+                    .padding(vertical = 4.dp),
             )
+            if (showHelp) {
+                target.notice?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
+                Text(
+                    text = "在页面里完成登录，然后点上面按钮。味记不会读取你的账号或密码，" +
+                        "只保存平台发放的认证 Cookie。登录态会过期，解析突然失败时回来重新登录一次即可。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (slowHint && !detected) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "还没有检测到认证 Cookie。若页面已完成登录，请稍等或点右上角刷新；" +
+                            "仍失败时，该平台可能限制了网页登录。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
         }
     }
 }
@@ -325,10 +407,12 @@ fun LoginScreen(nav: NavHostController, platformKey: String) {
 private val browserSchemes = setOf("http", "https", "about", "data", "javascript", "file", "blob")
 
 /**
- * WebView 里部分内核会把 vh 解析成 0，B 站登录页的 `.login-wrap` 因此塌成内容高度，
- * 「登录」按钮压住用户协议。这里用真实视口高度兜底：vh 正常时结果与 100vh 一致。
+ * 这个 WebView 内核里 vh / 百分比高度会算成 0（初始包含块高度为 0），平台登录页因此
+ * 塌成一团：B 站「登录」按钮压住用户协议，抖音的登录卡片整个跑到屏幕上方看不见。
+ * 这里用 window.innerHeight 的像素值兜底（不用 %，% 同样会塌）；vh 正常时结果一致。
+ * 同时把协议行里被样式藏起来的勾选框还原出来（不代替用户勾选）。
  */
-private const val viewportHeightPatch = """
+private const val pagePatch = """
 (function () {
   var h = window.innerHeight;
   var style = document.getElementById('weiji-vh');
@@ -337,7 +421,14 @@ private const val viewportHeightPatch = """
     style.id = 'weiji-vh';
     document.documentElement.appendChild(style);
   }
-  style.textContent = '.login-wrap{min-height:' + h + 'px !important}';
+  style.textContent =
+    'html{height:' + h + 'px !important}' +
+    'body{min-height:' + h + 'px !important}' +
+    '.login-wrap{min-height:' + h + 'px !important}' +
+    '.explain-tips input[type=checkbox],.explain-tips [class*=check]{' +
+    'opacity:1 !important;visibility:visible !important;' +
+    'width:16px !important;height:16px !important;' +
+    'min-width:16px !important;min-height:16px !important;display:inline-block !important}';
 })();
 """
 
@@ -351,6 +442,14 @@ private fun intentFallback(url: Uri): String? {
     return runCatching { Uri.decode(value) }
         .getOrNull()
         ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+}
+
+private fun setCookiesToWebView(urls: List<String>, cookie: String) {
+    val manager = CookieManager.getInstance()
+    cookie.split(';').map { it.trim() }.filter { it.contains('=') }.forEach { pair ->
+        urls.forEach { url -> runCatching { manager.setCookie(url, pair) } }
+    }
+    manager.flush()
 }
 
 private fun readCookie(target: LoginTarget): String =

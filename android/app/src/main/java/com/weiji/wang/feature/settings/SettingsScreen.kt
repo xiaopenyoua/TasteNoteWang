@@ -1,6 +1,5 @@
 package com.weiji.wang.feature.settings
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -23,13 +22,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -45,7 +42,6 @@ import com.weiji.wang.core.AppContainer
 import com.weiji.wang.core.data.prefs.ThemeMode
 import com.weiji.wang.core.model.Platform
 import com.weiji.wang.ui.LocalContainer
-import com.weiji.wang.ui.components.ConfirmDialog
 import com.weiji.wang.ui.components.PageHeader
 import com.weiji.wang.ui.components.SectionHeader
 import com.weiji.wang.ui.components.SegmentedControl
@@ -66,9 +62,6 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
     val autoDownload = container.settings.autoDownloadMedia
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
-
-    var cookieRevision by mutableIntStateOf(0)
-        private set
 
     fun setTheme(mode: ThemeMode) {
         viewModelScope.launch { container.settings.setTheme(mode) }
@@ -98,11 +91,6 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         return AccountStatus("已登录", AccountLevel.OK)
     }
 
-    fun clearCookies() {
-        container.cookies.clearAll()
-        cookieRevision += 1
-    }
-
     private companion object {
         const val STALE_AFTER_MS = 30L * 24 * 60 * 60 * 1000
     }
@@ -118,9 +106,6 @@ fun SettingsScreen(nav: NavHostController) {
     val theme by vm.theme.collectAsStateWithLifecycle()
     val wifiOnly by vm.wifiOnly.collectAsStateWithLifecycle()
     val autoDownload by vm.autoDownload.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    val cookieRevision = vm.cookieRevision
-    var showClearLogin by remember { mutableStateOf(false) }
     var resumeTick by remember { mutableIntStateOf(0) }
 
     LifecycleResumeEffect(Unit) {
@@ -177,7 +162,7 @@ fun SettingsScreen(nav: NavHostController) {
             SettingsGroup {
                 PlatformAccounts.forEachIndexed { index, platform ->
                     if (index > 0) HairlineRow()
-                    val status = remember(resumeTick, cookieRevision, platform) {
+                    val status = remember(resumeTick, platform) {
                         vm.accountStatus(platform)
                     }
                     SettingsRow(
@@ -187,12 +172,6 @@ fun SettingsScreen(nav: NavHostController) {
                         onClick = { nav.navigate("login/${platform.key}") },
                     )
                 }
-                HairlineRow()
-                SettingsRow(
-                    title = "清除全部登录信息",
-                    danger = true,
-                    onClick = { showClearLogin = true },
-                )
             }
         }
 
@@ -249,20 +228,6 @@ fun SettingsScreen(nav: NavHostController) {
                 }
             }
         }
-    }
-
-    if (showClearLogin) {
-        ConfirmDialog(
-            title = "清除全部登录信息？",
-            body = "三个平台保存的 Cookie 都会被删除，之后解析需要登录的内容时会失败。",
-            confirmLabel = "清除",
-            onDismiss = { showClearLogin = false },
-            onConfirm = {
-                vm.clearCookies()
-                showClearLogin = false
-                Toast.makeText(context, "已清除全部登录信息", Toast.LENGTH_SHORT).show()
-            },
-        )
     }
 }
 

@@ -9,6 +9,13 @@
         android:name="android.hardware.touchscreen"
         android:required="false" />
 
+    <!-- 创建菜谱时调用系统相机拍照（Android 11+ 需要声明可见性） -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".WeijiApplication"
         android:allowBackup="true"

@@ -2,6 +2,7 @@ package com.weiji.wang.feature.edit
 
 import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -60,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -70,6 +72,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
 import com.weiji.wang.core.data.MenuRepository
 import com.weiji.wang.core.data.RecipeRepository
@@ -93,8 +96,10 @@ import com.weiji.wang.ui.components.PrimaryButton
 import com.weiji.wang.ui.components.SecondaryButton
 import com.weiji.wang.ui.components.focusRing
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 private const val MAX_STEP_MEDIA = 20
 private const val MAX_STEP_CHARS = 300
@@ -119,6 +124,11 @@ internal class EditViewModel(
         private set
     var notes by mutableStateOf("")
         private set
+
+    var myNote by mutableStateOf("")
+        private set
+    private var myNoteId: String? = null
+    private var loadedMyNote: String = ""
     var sourceUrl by mutableStateOf("")
         private set
 
@@ -158,6 +168,7 @@ internal class EditViewModel(
                 existing = details
                 if (details != null) {
                     fill(details)
+                    loadNotes(details.recipe.id)
                 } else {
                     loadError = "没有找到这道菜谱，可以重新保存创建。"
                 }
@@ -185,6 +196,20 @@ internal class EditViewModel(
         notes = value
         error = null
         saveError = null
+        dirty = true
+    }
+
+    fun updateMyNote(value: String) {
+        myNote = value
+        error = null
+        saveError = null
+        dirty = true
+    }
+
+    fun updateStepNote(key: String, value: String) {
+        val index = steps.indexOfFirst { it.key == key }
+        if (index < 0) return
+        steps[index] = steps[index].copy(note = value.take(MAX_STEP_CHARS))
         dirty = true
     }
 
@@ -364,6 +389,36 @@ internal class EditViewModel(
                     isSaving = false
                     saveError = throwable.message?.takeIf { it.isNotBlank() } ?: "保存失败，请重试"
                 }
+        }
+    }
+
+    private suspend fun loadNotes(recipeId: String) {
+        val list = runCatching { repo.observeNotes(recipeId).first() }.getOrDefault(emptyList())
+        val whole = list.filter { it.stepId == null }.maxByOrNull { it.createdAt }
+        myNoteId = whole?.id
+        myNote = whole?.text.orEmpty()
+        loadedMyNote = myNote
+        val byStep = list.filter { it.stepId != null }.groupBy { it.stepId }
+        for (index in steps.indices) {
+            val step = steps[index]
+            val note = byStep[step.id]?.maxByOrNull { it.createdAt } ?: continue
+            steps[index] = step.copy(note = note.text, noteId = note.id, loadedNote = note.text)
+        }
+    }
+
+    private suspend fun saveNotes(recipeId: String) {
+        val whole = myNote.trim()
+        if (whole.isNotEmpty() && whole != loadedMyNote) {
+            val noteId = myNoteId
+            if (noteId != null) repo.updateNote(noteId, whole)
+            else myNoteId = repo.addNote(recipeId, null, whole).id
+        }
+        steps.forEach { step ->
+            val text = step.note.trim()
+            if (text.isEmpty() || text == step.loadedNote) return@forEach
+            val noteId = step.noteId
+            if (noteId != null) repo.updateNote(noteId, text)
+            else repo.addNote(recipeId, step.id, text)
         }
     }
 
@@ -579,6 +634,7 @@ internal class EditViewModel(
                 source = source,
                 mediaList = mediaList,
             )
+            saveNotes(id)
 
             val keptPaths = mediaList.map { it.relativePath }.toSet()
             val removedPaths = buildSet {
@@ -810,7 +866,22 @@ internal data class StepDraft(
     val text: String = "",
     val durationSeconds: Int? = null,
     val media: List<StepMediaDraft> = emptyList(),
+    val note: String = "",
+    val noteId: String? = null,
+    val loadedNote: String = "",
 )
+
+/** 拍照后写回哪里：封面或某一步。 */
+private sealed interface CameraTarget {
+    data object Cover : CameraTarget
+    data class Step(val stepKey: String) : CameraTarget
+}
+
+private fun newCameraUri(context: Context): Uri {
+    val dir = File(context.cacheDir, "camera").apply { mkdirs() }
+    val file = File(dir, "shot-${System.currentTimeMillis()}.jpg")
+    return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+}
 
 private data class PickedMedia(
     val stepMedia: List<MediaEntity>,
@@ -925,6 +996,7 @@ private fun parseOriginalSteps(text: String?): List<String> {
 @Composable
 fun EditRecipeScreen(nav: NavHostController, recipeId: String) {
     val container = LocalContainer.current
+    val context = LocalContext.current
     val vm: EditViewModel = viewModel(
         key = "edit-$recipeId",
         factory = viewModelFactory {
@@ -973,6 +1045,35 @@ fun EditRecipeScreen(nav: NavHostController, recipeId: String) {
         stepMediaLauncher.launch(
             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
         )
+    }
+
+    var cameraTarget by remember { mutableStateOf<CameraTarget?>(null) }
+    var cameraUri by remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture(),
+    ) { ok ->
+        val uri = cameraUri
+        val target = cameraTarget
+        cameraUri = null
+        cameraTarget = null
+        if (ok && uri != null && target != null) {
+            when (target) {
+                is CameraTarget.Cover -> vm.setCover(uri)
+                is CameraTarget.Step -> vm.addStepMedia(target.stepKey, listOf(uri))
+            }
+        }
+    }
+    val takePhoto: (CameraTarget) -> Unit = { target ->
+        val uri = runCatching { newCameraUri(context) }.getOrNull()
+        if (uri != null) {
+            cameraUri = uri
+            cameraTarget = target
+            runCatching { cameraLauncher.launch(uri) }.onFailure {
+                cameraUri = null
+                cameraTarget = null
+                Toast.makeText(context, "这台设备没有可用的相机应用", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     val saveAndReturn: (String) -> Unit = { id ->
@@ -1126,7 +1227,12 @@ fun EditRecipeScreen(nav: NavHostController, recipeId: String) {
             EditorBlock {
                 BlockLabel("封面")
                 Spacer(Modifier.height(8.dp))
-                CoverPicker(slot = vm.cover, onPick = pickCover, onRemove = vm::removeCover)
+                CoverPicker(
+                    slot = vm.cover,
+                    onPick = pickCover,
+                    onCamera = { takePhoto(CameraTarget.Cover) },
+                    onRemove = vm::removeCover,
+                )
             }
         }
         item { Spacer(Modifier.height(14.dp)) }
@@ -1150,6 +1256,7 @@ fun EditRecipeScreen(nav: NavHostController, recipeId: String) {
                     vm = vm,
                     onImport = { showImportSheet = true },
                     onPickMedia = pickStepMedia,
+                    onCamera = { key -> takePhoto(CameraTarget.Step(key)) },
                 )
             }
         }
@@ -1170,6 +1277,27 @@ fun EditRecipeScreen(nav: NavHostController, recipeId: String) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = editFieldColors(),
+                )
+            }
+        }
+        item { Spacer(Modifier.height(14.dp)) }
+        item {
+            EditorBlock {
+                BlockLabel("我的备注")
+                Text(
+                    "做完一次记一句「哪里不一样」；预览页只读显示，不能在这里以外的地方改。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = vm.myNote,
+                    onValueChange = vm::updateMyNote,
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = editFieldColors(),
+                    placeholder = { Text("比如：盐少放一点，下次多炒 1 分钟") },
                 )
             }
         }
@@ -1351,6 +1479,7 @@ private fun StepsSection(
     vm: EditViewModel,
     onImport: () -> Unit,
     onPickMedia: (String) -> Unit,
+    onCamera: (String) -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1402,9 +1531,11 @@ private fun StepsSection(
                 total = vm.steps.size,
                 showImportHint = vm.importableSteps.isNotEmpty(),
                 onText = { vm.updateStepText(step.key, it) },
+                onNote = { vm.updateStepNote(step.key, it) },
                 onMove = { delta -> vm.moveStep(step.key, delta) },
                 onDelete = { vm.removeStep(step.key) },
                 onPickMedia = { onPickMedia(step.key) },
+                onCamera = { onCamera(step.key) },
                 onMoveMedia = { mediaKey, delta -> vm.moveStepMedia(step.key, mediaKey, delta) },
                 onRemoveMedia = { mediaKey -> vm.removeStepMedia(step.key, mediaKey) },
             )
@@ -1439,9 +1570,11 @@ private fun StepCard(
     total: Int,
     showImportHint: Boolean,
     onText: (String) -> Unit,
+    onNote: (String) -> Unit,
     onMove: (Int) -> Unit,
     onDelete: () -> Unit,
     onPickMedia: () -> Unit,
+    onCamera: () -> Unit,
     onMoveMedia: (String, Int) -> Unit,
     onRemoveMedia: (String) -> Unit,
 ) {
@@ -1549,8 +1682,27 @@ private fun StepCard(
             }
             if (step.media.size < MAX_STEP_MEDIA) {
                 AddMediaTile(onClick = onPickMedia)
+                CameraMediaTile(onClick = onCamera)
             }
         }
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = step.note,
+            onValueChange = onNote,
+            minLines = 1,
+            maxLines = 4,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = editFieldColors(),
+            textStyle = MaterialTheme.typography.bodyMedium,
+            placeholder = {
+                Text(
+                    "这一步的备注（可选），预览页只读显示",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
     }
 }
 
@@ -1583,6 +1735,7 @@ private fun StepToolButton(
 private fun CoverPicker(
     slot: MediaSlot?,
     onPick: () -> Unit,
+    onCamera: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
@@ -1614,6 +1767,16 @@ private fun CoverPicker(
                 text = "支持 JPG / PNG / MP4",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.tertiary,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "拍照",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(onClick = onCamera)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
     } else {

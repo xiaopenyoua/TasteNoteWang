@@ -1,6 +1,7 @@
 package com.weiji.wang
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -88,7 +89,7 @@ class MainFlowTest {
         openRecipes()
         compose.onAllNodesWithText("测试菜谱").onFirst().performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("步骤").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("今晚做这道").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("第 1 步"))
         compose.waitUntil(5_000) {
@@ -107,19 +108,17 @@ class MainFlowTest {
     }
 
     @Test
-    fun recipeDetailShowsStepsFirstAndNoCookMode() {
+    fun recipeDetailShowsReadOnlyPreview() {
         openDetail()
         compose.onNodeWithText("第 1 步").assertIsDisplayed()
-        compose.onNodeWithText("步骤").assertIsDisplayed()
-        compose.onNodeWithText("食材").assertIsDisplayed()
-        compose.onNodeWithText("原文").assertIsDisplayed()
+        compose.onNodeWithText("切块").assertIsDisplayed()
         compose.onNodeWithText("开始做").assertDoesNotExist()
+        compose.onNodeWithText("记一笔").assertDoesNotExist()
     }
 
     @Test
     fun addToTodayUpdatesHomeAndShopping() {
         openDetail()
-        compose.onNodeWithText("食材").performClick()
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("今晚做这道"))
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("今晚做这道").fetchSemanticsNodes().isNotEmpty()
@@ -189,13 +188,15 @@ class MainFlowTest {
     @Test
     fun editScreenSavesAndReturnsToDetail() {
         openDetail()
+        compose.onAllNodes(hasScrollAction()).onFirst()
+            .performScrollToNode(hasContentDescription("编辑"))
         compose.onNodeWithContentDescription("编辑").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("保存").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onAllNodesWithText("保存").onFirst().performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("步骤").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("今晚做这道").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("第 1 步"))
         compose.waitUntil(5_000) {
@@ -207,6 +208,8 @@ class MainFlowTest {
     @Test
     fun favoriteToggles() {
         openDetail()
+        compose.onAllNodes(hasScrollAction()).onFirst()
+            .performScrollToNode(hasContentDescription("收藏"))
         compose.onNodeWithContentDescription("收藏").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithContentDescription("取消收藏").fetchSemanticsNodes().isNotEmpty()

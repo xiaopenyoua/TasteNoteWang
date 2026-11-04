@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -37,14 +38,11 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -83,7 +82,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.navigation.NavHostController
-import coil.compose.AsyncImage
 import com.weiji.wang.R
 import com.weiji.wang.core.data.MenuRepository
 import com.weiji.wang.core.data.RecipeRepository
@@ -102,7 +100,7 @@ import com.weiji.wang.ui.components.MetaChip
 import com.weiji.wang.ui.components.PrimaryButton
 import com.weiji.wang.ui.components.RecipeCover
 import com.weiji.wang.ui.components.SectionHeader
-import com.weiji.wang.ui.components.SegmentedControl
+import coil.compose.rememberAsyncImagePainter
 import com.weiji.wang.ui.components.SourceBar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -142,18 +140,6 @@ class RecipeDetailViewModel(
     /** 今晚做这道：写入今天菜单与采购；同一天重复点击是幂等的。 */
     fun addToday(servings: Int, onResult: (Boolean) -> Unit) {
         viewModelScope.launch { onResult(menu.addToday(recipeId, servings)) }
-    }
-
-    fun saveNote(stepId: String?, existingId: String?, text: String) {
-        val clean = text.trim()
-        if (clean.isEmpty()) return
-        viewModelScope.launch {
-            if (existingId != null) {
-                repo.updateNote(existingId, clean)
-            } else {
-                repo.addNote(recipeId, stepId, clean)
-            }
-        }
     }
 
     fun delete(onDone: () -> Unit) {
@@ -211,15 +197,14 @@ private fun DetailContent(
     val view = LocalView.current
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var tab by rememberSaveable { mutableIntStateOf(0) }
     var servings by rememberSaveable(recipe.recipe.id) {
         mutableIntStateOf(recipe.recipe.servings.coerceIn(1, 12))
     }
     var showDelete by remember { mutableStateOf(false) }
-    var noteEditor by remember { mutableStateOf<NoteEditorState?>(null) }
     var viewer by remember { mutableStateOf<ImageViewerTarget?>(null) }
     var stepVideo by remember { mutableStateOf<String?>(null) }
     var fullscreenOriginal by remember { mutableStateOf(false) }
+    var showOriginal by rememberSaveable(recipe.recipe.id) { mutableStateOf(false) }
 
     val steps = remember(recipe.steps) { recipe.steps.sortedBy { it.position } }
     val originalVideo = remember(recipe.media) {
@@ -278,7 +263,7 @@ private fun DetailContent(
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp),
+            contentPadding = PaddingValues(bottom = 32.dp),
         ) {
             item {
                 RecipeCoverHeader(
@@ -298,38 +283,7 @@ private fun DetailContent(
                 RecipeHeader(
                     recipe = recipe,
                     servings = servings,
-                    tab = tab,
-                    onSelectTab = { tab = it },
-                )
-            }
-
-            when (tab) {
-                0 -> stepsContent(
-                    recipe = recipe,
-                    notes = notes,
-                    timers = timerList,
-                    videoPlayer = videoPlayer,
-                    videoFullscreenActive = fullscreenOriginal,
-                    onTimerToggle = { stepId -> toggleTimer(stepId) },
-                    onTimerRemove = { stepId -> timers.remove(stepId) },
-                    onNoteEdit = { stepId, existing ->
-                        noteEditor = NoteEditorState(
-                            stepId = stepId,
-                            existing = existing,
-                            title = if (existing == null) "记一笔" else "编辑备注",
-                        )
-                    },
-                    onImageClick = { paths, initial ->
-                        viewer = ImageViewerTarget(paths, initial)
-                    },
-                    onVideoClick = { path -> stepVideo = path },
-                    onFullscreenVideo = { fullscreenOriginal = true },
-                )
-                1 -> ingredientsContent(
-                    recipe = recipe,
-                    servings = servings,
                     isToday = isToday,
-                    onServings = { servings = it.coerceIn(1, 12) },
                     onAddToday = {
                         vm.addToday(servings) { ok ->
                             scope.launch {
@@ -340,8 +294,46 @@ private fun DetailContent(
                         }
                     },
                 )
-                else -> originalContent(recipe)
             }
+
+            if (videoPlayer != null) {
+                item {
+                    OriginalVideoSection(
+                        player = videoPlayer,
+                        playingFullscreen = fullscreenOriginal,
+                        onFullscreen = { fullscreenOriginal = true },
+                    )
+                }
+            }
+
+            item { PreviewSectionTitle("食材") }
+            ingredientsContent(
+                recipe = recipe,
+                servings = servings,
+                onServings = { servings = it.coerceIn(1, 12) },
+            )
+
+            item { PreviewSectionTitle("步骤") }
+            stepsContent(
+                recipe = recipe,
+                notes = notes,
+                timers = timerList,
+                onTimerToggle = { stepId -> toggleTimer(stepId) },
+                onTimerRemove = { stepId -> timers.remove(stepId) },
+                onImageClick = { paths, initial -> viewer = ImageViewerTarget(paths, initial) },
+                onVideoClick = { path -> stepVideo = path },
+            )
+
+            item {
+                OriginalTextSection(
+                    recipe = recipe,
+                    expanded = showOriginal,
+                    onToggle = { showOriginal = !showOriginal },
+                )
+            }
+
+            noteItems(notes)
+            item { Spacer(Modifier.height(8.dp)) }
         }
 
         SnackbarHost(
@@ -360,23 +352,6 @@ private fun DetailContent(
             onConfirm = {
                 showDelete = false
                 vm.delete { nav.popBackStack() }
-            },
-        )
-    }
-
-    noteEditor?.let { editor ->
-        NoteEditorDialog(
-            title = editor.title,
-            description = if (editor.stepId != null) {
-                "给这一步的备注，下次做的时候还能看到。"
-            } else {
-                "给整道菜的备注，下次做的时候还能看到。"
-            },
-            initialText = editor.existing?.text.orEmpty(),
-            onDismiss = { noteEditor = null },
-            onSave = { text ->
-                vm.saveNote(editor.stepId, editor.existing?.id, text)
-                noteEditor = null
             },
         )
     }
@@ -401,6 +376,54 @@ private fun DetailContent(
             player = videoPlayer,
             onDismiss = { fullscreenOriginal = false },
         )
+    }
+}
+
+/** 预览页的分节标题，像文档大纲一样分隔食材 / 步骤。 */
+@Composable
+private fun PreviewSectionTitle(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),
+    )
+}
+
+@Composable
+private fun OriginalVideoSection(
+    player: ExoPlayer,
+    playingFullscreen: Boolean,
+    onFullscreen: () -> Unit,
+) {
+    Column(modifier = Modifier.padding(top = 8.dp)) {
+        Text(
+            text = "原视频",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+        )
+        if (playingFullscreen) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "全屏播放中",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            VideoPlayerCard(
+                player = player,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f),
+                onFullscreen = onFullscreen,
+            )
+        }
     }
 }
 
@@ -481,8 +504,8 @@ private fun RecipeCoverHeader(
 private fun RecipeHeader(
     recipe: RecipeWithDetails,
     servings: Int,
-    tab: Int,
-    onSelectTab: (Int) -> Unit,
+    isToday: Boolean,
+    onAddToday: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(14.dp))
@@ -506,12 +529,18 @@ private fun RecipeHeader(
             if (recipe.media.any { it.kind == MediaKind.VIDEO.name }) MetaChip("含视频")
         }
         Spacer(Modifier.height(14.dp))
-        SegmentedControl(
-            options = listOf("步骤", "食材", "原文"),
-            selectedIndex = tab,
-            onSelect = onSelectTab,
+        PrimaryButton(
+            text = if (isToday) "已加入今天吃什么" else "今晚做这道",
+            onClick = onAddToday,
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "加入今天吃什么，并把食材加入采购清单",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.tertiary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -519,14 +548,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.stepsContent(
     recipe: RecipeWithDetails,
     notes: List<NoteEntity>,
     timers: List<StepTimer>,
-    videoPlayer: ExoPlayer?,
-    videoFullscreenActive: Boolean,
     onTimerToggle: (String) -> Unit,
     onTimerRemove: (String) -> Unit,
-    onNoteEdit: (String?, NoteEntity?) -> Unit,
     onImageClick: (List<String>, Int) -> Unit,
     onVideoClick: (String) -> Unit,
-    onFullscreenVideo: () -> Unit,
 ) {
     val steps = recipe.steps.sortedBy { it.position }
 
@@ -542,85 +567,25 @@ private fun androidx.compose.foundation.lazy.LazyListScope.stepsContent(
         }
     }
 
-    if (videoPlayer != null) {
-        item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                Text(
-                    text = "原视频",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-                if (videoFullscreenActive) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "全屏播放中",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    VideoPlayerCard(
-                        player = videoPlayer,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp),
-                        onFullscreen = onFullscreenVideo,
-                    )
-                }
-            }
-        }
-    }
-
     if (steps.isEmpty()) {
-        item {
-            EmptyInfoCard("还没有拆出步骤。可以切到「原文」看来源全文，或点右上角编辑补充。")
-        }
-    } else {
-        itemsIndexed(steps, key = { _, step -> step.id }) { index, step ->
-            val stepNotes = notes.filter { it.stepId == step.id }
-                .sortedByDescending { it.createdAt }
-            val media = stepMedia(recipe, step, index)
-            StepCard(
-                number = index + 1,
-                text = step.text,
-                durationSeconds = step.durationSeconds,
-                timer = timers.firstOrNull { it.stepId == step.id },
-                media = media,
-                note = stepNotes.firstOrNull(),
-                noteCount = stepNotes.size,
-                onTimerClick = { onTimerToggle(step.id) },
-                onAddNote = { onNoteEdit(step.id, null) },
-                onEditNote = { stepNotes.firstOrNull()?.let { onNoteEdit(step.id, it) } },
-                onImageClick = onImageClick,
-                onVideoClick = onVideoClick,
-            )
-        }
+        item { EmptyInfoCard("还没有拆出步骤。点右上角编辑补充，或看下面的原文。") }
+        return
     }
 
-    item {
-        Spacer(Modifier.height(10.dp))
-        SectionHeader(
-            title = "我的备注",
-            actionLabel = "记一笔",
-            onAction = { onNoteEdit(null, null) },
+    itemsIndexed(steps, key = { _, step -> step.id }) { index, step ->
+        val stepNotes = notes.filter { it.stepId == step.id }.sortedByDescending { it.createdAt }
+        StepCard(
+            number = index + 1,
+            text = step.text,
+            durationSeconds = step.durationSeconds,
+            timer = timers.firstOrNull { it.stepId == step.id },
+            media = stepMedia(recipe, step, index),
+            notes = stepNotes,
+            onTimerClick = { onTimerToggle(step.id) },
+            onImageClick = onImageClick,
+            onVideoClick = onVideoClick,
         )
     }
-    val wholeNotes = notes.filter { it.stepId == null }.sortedByDescending { it.createdAt }
-    if (wholeNotes.isEmpty()) {
-        item { EmptyNoteCard() }
-    } else {
-        itemsIndexed(wholeNotes, key = { _, note -> note.id }) { _, note ->
-            WholeNoteCard(note = note, onEdit = { onNoteEdit(null, note) })
-        }
-    }
-    item { Spacer(Modifier.height(16.dp)) }
 }
 
 @Composable
@@ -630,65 +595,63 @@ private fun StepCard(
     durationSeconds: Int?,
     timer: StepTimer?,
     media: List<StepMedia>,
-    note: NoteEntity?,
-    noteCount: Int,
+    notes: List<NoteEntity>,
     onTimerClick: () -> Unit,
-    onAddNote: () -> Unit,
-    onEditNote: () -> Unit,
     onImageClick: (List<String>, Int) -> Unit,
     onVideoClick: (String) -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(14.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(26.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center,
-            ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(14.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "$number",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
                 Text(
-                    text = "$number",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.Black,
-                    fontWeight = FontWeight.Bold,
+                    text = "第 $number 步",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(Modifier.weight(1f))
+                if (durationSeconds != null) {
+                    StepTimerCapsule(
+                        timer = timer,
+                        durationSeconds = durationSeconds,
+                        onClick = onTimerClick,
+                    )
+                }
             }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
-                text = "第 $number 步",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = text.ifBlank { "按图示操作" },
+                style = MaterialTheme.typography.bodyLarge,
             )
-            Spacer(Modifier.weight(1f))
-            if (durationSeconds != null) {
-                StepTimerCapsule(
-                    timer = timer,
-                    durationSeconds = durationSeconds,
-                    onClick = onTimerClick,
-                )
-            }
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = text.ifBlank { "按图示操作" },
-            style = MaterialTheme.typography.bodyLarge,
-        )
         if (media.isNotEmpty()) {
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             val images = media.filter { !it.isVideo }.map { it.relativePath }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                itemsIndexed(media, key = { _, item -> item.id }) { mediaIndex, item ->
-                    MediaThumb(
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                media.forEachIndexed { mediaIndex, item ->
+                    StepMediaBlock(
                         media = item,
-                        order = mediaIndex + 1,
                         onClick = {
                             if (item.isVideo) {
                                 onVideoClick(item.relativePath)
@@ -701,11 +664,7 @@ private fun StepCard(
                 }
             }
         }
-        if (note != null) {
-            StepNoteCard(note = note, count = noteCount, onEdit = onEditNote)
-        } else {
-            AddStepNote(onClick = onAddNote)
-        }
+        notes.forEach { note -> StepNoteCard(note = note) }
     }
 }
 
@@ -742,76 +701,77 @@ private fun StepTimerCapsule(
     }
 }
 
+/** 步骤里的图片/视频铺满卡片宽度；点一下进全屏查看或播放。 */
 @Composable
-private fun MediaThumb(
+private fun StepMediaBlock(
     media: StepMedia,
-    order: Int,
     onClick: () -> Unit,
 ) {
     val files = LocalContainer.current.files
     val file = remember(media.relativePath, files) { files.resolve(media.relativePath) }
     val exists = remember(file) { file.exists() && file.length() > 0L }
-    Box(
-        modifier = Modifier
-            .size(width = 104.dp, height = 78.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (exists && !media.isVideo) {
-            AsyncImage(
-                model = file,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize(),
+
+    when {
+        media.isVideo -> Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .background(Color.Black)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = "播放视频",
+                tint = Color.White,
+                modifier = Modifier.size(46.dp),
             )
-        } else {
+        }
+
+        !exists -> Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(4f / 3f)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
             Icon(
                 painter = painterResource(R.drawable.ic_bowl),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(28.dp),
             )
         }
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(4.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color.Black.copy(alpha = 0.45f))
-                .padding(horizontal = 4.dp, vertical = 1.dp),
-        ) {
-            Text(
-                text = "$order",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White,
-            )
-        }
-        if (media.isVideo) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.45f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "播放视频",
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp),
-                )
+
+        else -> {
+            val painter = rememberAsyncImagePainter(model = file)
+            val ratio = painter.intrinsicSize.let { size ->
+                if (size.isSpecified && size.width > 0f && size.height > 0f) {
+                    (size.width / size.height).coerceIn(0.6f, 2.2f)
+                } else {
+                    4f / 3f
+                }
             }
+            Image(
+                painter = painter,
+                contentDescription = null,
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(ratio)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable(onClick = onClick),
+            )
         }
     }
 }
 
 @Composable
-private fun StepNoteCard(note: NoteEntity, count: Int, onEdit: () -> Unit) {
+private fun StepNoteCard(note: NoteEntity) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp)
             .padding(top = 10.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
@@ -828,27 +788,11 @@ private fun StepNoteCard(note: NoteEntity, count: Int, onEdit: () -> Unit) {
                 .weight(1f)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = buildString {
-                        append("备注 · ${formatNoteDate(note.createdAt)}")
-                        if (count > 1) append(" · 共 $count 条")
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = "编辑",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable(onClick = onEdit)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                )
-            }
+            Text(
+                text = "备注 · ${formatNoteDate(note.createdAt)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(2.dp))
             Text(
                 text = note.text,
@@ -860,27 +804,7 @@ private fun StepNoteCard(note: NoteEntity, count: Int, onEdit: () -> Unit) {
 }
 
 @Composable
-private fun AddStepNote(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 10.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .dashedBorder(MaterialTheme.colorScheme.outline, 8.dp)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 9.dp),
-    ) {
-        Text(
-            text = "＋ 添加这一步的备注",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold,
-        )
-    }
-}
-
-@Composable
-private fun WholeNoteCard(note: NoteEntity, onEdit: () -> Unit) {
+private fun WholeNoteCard(note: NoteEntity) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -900,24 +824,11 @@ private fun WholeNoteCard(note: NoteEntity, onEdit: () -> Unit) {
                 .weight(1f)
                 .padding(14.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = formatNoteDateTime(note.createdAt),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = "编辑",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable(onClick = onEdit)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                )
-            }
+            Text(
+                text = formatNoteDateTime(note.createdAt),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(6.dp))
             Text(
                 text = note.text,
@@ -928,82 +839,20 @@ private fun WholeNoteCard(note: NoteEntity, onEdit: () -> Unit) {
     }
 }
 
-@Composable
-private fun EmptyNoteCard() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(20.dp),
-    ) {
-        Text(
-            text = "还没有备注。做完一次，记一句「哪里不一样」，下次就不用重新想。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+/** 只读备注：整道菜的备注放在文档末尾。 */
+private fun androidx.compose.foundation.lazy.LazyListScope.noteItems(notes: List<NoteEntity>) {
+    val wholeNotes = notes.filter { it.stepId == null }.sortedByDescending { it.createdAt }
+    if (wholeNotes.isEmpty()) return
+    item { PreviewSectionTitle("我的备注") }
+    itemsIndexed(wholeNotes, key = { _, note -> note.id }) { _, note ->
+        WholeNoteCard(note = note)
     }
-}
-
-@Composable
-private fun NoteEditorDialog(
-    title: String,
-    description: String,
-    initialText: String,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit,
-) {
-    var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
-        text = {
-            Column {
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    minLines = 2,
-                    maxLines = 6,
-                    shape = RoundedCornerShape(12.dp),
-                    placeholder = { Text("比如：盐少放一点，下次多炒 1 分钟") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onSave(text) },
-                enabled = text.isNotBlank(),
-            ) {
-                Text(
-                    text = "保存",
-                    color = if (text.isNotBlank()) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.tertiary,
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消", color = MaterialTheme.colorScheme.primary)
-            }
-        },
-    )
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.ingredientsContent(
     recipe: RecipeWithDetails,
     servings: Int,
-    isToday: Boolean,
     onServings: (Int) -> Unit,
-    onAddToday: () -> Unit,
 ) {
     item {
         Row(
@@ -1065,26 +914,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.ingredientsContent(
         }
     }
 
-    item {
-        Spacer(Modifier.height(16.dp))
-        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Column {
-                PrimaryButton(
-                    text = if (isToday) "已加入今天吃什么" else "今晚做这道",
-                    onClick = onAddToday,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "加入今天吃什么，并把食材加入采购清单",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-    }
+    item { Spacer(Modifier.height(8.dp)) }
 }
 
 @Composable
@@ -1151,33 +981,58 @@ private fun ingredientAmount(item: IngredientEntity, baseServings: Int, servings
     return IngredientScaler.format(scaled, item.unit)
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.originalContent(recipe: RecipeWithDetails) {
+@Composable
+private fun OriginalTextSection(
+    recipe: RecipeWithDetails,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
     val body = recipe.source?.textBody.orEmpty().ifBlank {
         recipe.source?.shareText.orEmpty()
     }
-    item {
-        Column(modifier = Modifier.padding(16.dp)) {
-            if (body.isBlank()) {
-                Text(
-                    text = "没有抓取到原文。可以在编辑页补充，或点上方原链接查看。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                SelectionContainer {
-                    Text(
-                        text = body,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
-            Spacer(Modifier.height(24.dp))
+    Column(modifier = Modifier.padding(top = 20.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = "自动解析可能有遗漏。以原文和原视频为准。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.tertiary,
+                text = "原文",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f),
             )
+            Text(
+                text = if (expanded) "收起" else "展开",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        if (expanded) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                if (body.isBlank()) {
+                    Text(
+                        text = "没有抓取到原文。可以在编辑页补充，或点来源条的原链接查看。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    SelectionContainer {
+                        Text(
+                            text = body,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "自动解析可能有遗漏。以原文和原视频为准。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+            }
         }
     }
 }
@@ -1204,12 +1059,6 @@ private data class StepMedia(
     val id: String,
     val relativePath: String,
     val isVideo: Boolean,
-)
-
-private data class NoteEditorState(
-    val stepId: String?,
-    val existing: NoteEntity?,
-    val title: String,
 )
 
 private data class ImageViewerTarget(
@@ -1241,19 +1090,6 @@ private fun MediaEntity.toStepMedia(): StepMedia = StepMedia(
     relativePath = relativePath,
     isVideo = kind == MediaKind.VIDEO.name || mime.startsWith("video/"),
 )
-
-private fun Modifier.dashedBorder(color: Color, cornerRadius: Dp): Modifier = drawBehind {
-    drawRoundRect(
-        color = color,
-        cornerRadius = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
-        style = Stroke(
-            width = 1.dp.toPx(),
-            pathEffect = PathEffect.dashPathEffect(
-                floatArrayOf(6.dp.toPx(), 4.dp.toPx()),
-            ),
-        ),
-    )
-}
 
 private fun formatNoteDate(millis: Long): String =
     SimpleDateFormat("M月d日", Locale.CHINA).format(Date(millis))

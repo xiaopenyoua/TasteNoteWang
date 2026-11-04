@@ -34,11 +34,13 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.weiji.wang.R
 import com.weiji.wang.core.data.db.MediaEntity
 import com.weiji.wang.core.model.Ulid
 import com.weiji.wang.ui.LocalContainer
@@ -268,6 +270,33 @@ fun AddMediaTile(onClick: () -> Unit) {
         Spacer(Modifier.height(4.dp))
         Text(
             text = "图片/视频",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+/** 和「图片/视频」并排的拍照入口。 */
+@Composable
+fun CameraMediaTile(onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .size(width = 104.dp, height = 78.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .dashedBorder(MaterialTheme.colorScheme.outline, 12.dp)
+            .clickable(onClick = onClick),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_camera),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "拍照",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.primary,
         )

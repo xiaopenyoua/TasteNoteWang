@@ -329,7 +329,11 @@ related:
 - 更多面板：入口切换、页面版本（移动/桌面）、缩放 −/＋、清除本平台登录、平台提示。
 - 登录检测：`onPageFinished` 后每 1s 读取 Cookie，连续 2 次命中认证键才显示「已检测到」；12s 未命中提示；30s 错误态；离开停止轮询。
 - 拦截 `intent://`、`snssdk1128://`、`xhsdiscover://`、`bilibili://` 等 App scheme；`intent://` 里带 `S.browser_fallback_url` 时直接跳到该网页，其余情况提示「页面想跳转到 App，已拦下；请用页面内的登录入口」，不离开 WebView。
-- WebView 开宽视口（`useWideViewPort` + `loadWithOverviewMode`），否则抖音只渲染出一个空壳页；页尾再补一条 `.login-wrap` 的真实视口高度兜底，避免 B 站登录页的「登录」按钮压住用户协议。
+- WebView 开宽视口（`useWideViewPort` + `loadWithOverviewMode`），否则抖音只渲染出一个空壳页。
+- 内核里 `vh` 与百分比高度会算成 0，登录页因此塌陷（B 站按钮压住协议、抖音登录卡片跑到屏幕上方）。`onPageFinished` 注入一段样式，用 `window.innerHeight` 的像素值兜底：`html` 高、`body` 最小高、`.login-wrap` 最小高，并还原被隐藏的协议勾选框（不代替用户勾选）。
+- 抖音走专用登录页 `https://www.douyin.com/login_page?service=…`，页面自带扫码 / 验证码 / 密码三种入口。
+- 底部常驻「页面登录不了？手动粘贴 Cookie」：展开后粘贴电脑浏览器里复制的完整 Cookie，校验含认证键后写入本机并同步进 WebView；这是任何平台都能走通的兜底路径。
+- 底部说明（平台提示、Cookie 说明、超时提示）收进可折叠的「说明」，默认收起，给登录页留出更多高度。
 - 不自动勾选用户协议、不自动填账号密码、不调用原生登录接口、不做签名破解。
 
 **平台配置矩阵（推荐）**
