@@ -50,7 +50,7 @@ design/
 6. [`product/implemented-ui-spec.md`](product/implemented-ui-spec.md) —— 设计稿与代码的逐屏对照。
 7. [`product/ui-change-proposal.md`](product/ui-change-proposal.md) —— 待确认的 UI 变更提案（详情/编辑/媒体/备注/登录/采购合并与编辑/每日菜单历史/搜索/存储/数据迁移）。
 8. [`prototype/ui-proposal.html`](prototype/ui-proposal.html) —— 提案的可视稿。
-9. [`product/recipe-preview-directions.md`](product/recipe-preview-directions.md) —— 菜谱预览页五版视觉方向（待选，含整页稿与取舍）。
+9. [`product/recipe-preview-directions.md`](product/recipe-preview-directions.md) —— 菜谱预览页视觉方向（已选定 01 编辑部并落地，含其余方向与取舍）。
 
 ## 与开发区的边界
 

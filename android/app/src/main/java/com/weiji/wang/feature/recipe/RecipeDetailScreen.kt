@@ -622,6 +622,28 @@ private fun RecipeCoverHeader(
                 .fillMaxWidth()
                 .then(if (wide) Modifier.height(380.dp) else Modifier.aspectRatio(4f / 5f)),
             shape = RoundedCornerShape(0.dp),
+            fallback = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    c.accent.copy(alpha = 0.10f),
+                                    c.paper,
+                                ),
+                            ),
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = recipe.recipe.title.take(1),
+                        fontFamily = EditorialSerif,
+                        fontSize = 88.sp,
+                        color = c.accent.copy(alpha = 0.22f),
+                    )
+                }
+            },
         )
         Box(
             modifier = Modifier

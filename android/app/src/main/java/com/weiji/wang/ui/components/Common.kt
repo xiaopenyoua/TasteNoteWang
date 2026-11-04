@@ -155,6 +155,7 @@ fun RecipeCover(
     modifier: Modifier = Modifier,
     fallbackText: String = "味",
     shape: RoundedCornerShape = RoundedCornerShape(14.dp),
+    fallback: (@Composable () -> Unit)? = null,
 ) {
     val files = LocalContainer.current.files
     val file = relativePath?.let { files.resolve(it) }
@@ -164,12 +165,16 @@ fun RecipeCover(
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_bowl),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(28.dp),
-        )
+        if (fallback != null) {
+            fallback()
+        } else {
+            Icon(
+                painter = painterResource(R.drawable.ic_bowl),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(28.dp),
+            )
+        }
         if (file != null && file.exists() && file.length() > 0) {
             AsyncImage(
                 model = file,

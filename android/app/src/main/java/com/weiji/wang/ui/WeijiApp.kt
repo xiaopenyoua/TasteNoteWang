@@ -82,7 +82,7 @@ fun WeijiApp(
     val wide = width >= 600
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route.orEmpty()
-    val hideChrome = route.startsWith("login")
+    val hideChrome = route.startsWith("login") || route.startsWith("recipe/")
 
     LaunchedEffect(shareText, shareUris) {
         if (!shareText.isNullOrBlank() || shareUris.isNotEmpty()) {

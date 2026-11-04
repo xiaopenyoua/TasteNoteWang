@@ -13,7 +13,7 @@ related:
 
 # UI 变更提案（待确认）
 
-> **状态：proposed。确认前不改代码。**
+> **状态：proposed；2026-11-04 部分被取代。** 详情页已按 [`recipe-preview-directions.md`](recipe-preview-directions.md) 的 01 编辑部方向落地（见 [`implemented-ui-spec.md`](implemented-ui-spec.md) §4.3）：删除详情页「今晚做这道」按钮，加入今天菜单只保留菜谱列表长按 →「加入今天食谱」。本文其余提案仍待确认。
 > 可视稿：[`../prototype/ui-proposal.html`](../prototype/ui-proposal.html)；对照基准：[`../prototype/ui.html`](../prototype/ui.html) / [`implemented-ui-spec.md`](implemented-ui-spec.md)。
 > 手机画布 411×914dp（Pixel 7，density 420）；平板 900×1280dp。颜色/字阶复用 `visual-language.md`。
 
