@@ -2,10 +2,11 @@
 doc: android/docs/import-pipeline
 title: 收录管线（解析、下载、降级）
 status: accepted
-date: 2026-11-04
+date: 2026-11-05
 owner: wang
 related:
   - docs/research/2026-10-30-tech-research
+  - docs/research/2026-11-05-douyin-share-media
   - docs/decisions/0003-media-import
   - android/docs/data-storage
 ---
@@ -98,7 +99,15 @@ data class ExtractedContent(
    - 文字：`title` / `desc` / `tagList`。
 4. 风控（300031/300015/461/登录页）→ `NEEDS_LOGIN`，引导 WebView 登录后重试。
 
-### 4.3 抖音（移动分享页 + 三路嗅探）
+### 4.3 抖音（移动分享页 + 播放跳转口）
+
+**2026-11-05 实测（两条分享链接 + WebView 日志）**
+
+分享页的 reflow 接口（`/aweme/v1/web/aweme/detail/`）现在返回 `aweme_list[0].video` 只有
+`cover / duration / bit_rate:null / big_thumbs`，**没有 `play_addr`**；所以 JSON 解析永远拿不到视频直链，
+这也解释了「只保存封面」。真正的视频地址来自页面播放器自己发出的
+`…/aweme/v1/playwm/?video_id=…`：它是 302 跳转口，不需要伪造签名，跟随重定向即得到
+`douyinvod.com` 直链；把 `playwm` 改成 `play` 就是无水印版本。`video_id` 只存在于这条跳转口里。
 
 **2026-11-04 实测（curl + WebView 日志）**
 
@@ -128,14 +137,15 @@ data class ExtractedContent(
    - **三路同时收**：① XHR/fetch 响应体（`item_list` / `aweme_detail`）；② `performance.getEntriesByType('resource')` 里的媒体直链（`douyinvod` / `byteicdn` / `video/tos` / `.mp4`）；③ `<video>.currentSrc`。探针先 `muted=true; play()` 静默触发一次播放（播放器默认不一定自动播，不触发就不会有 media 请求），读完 `currentSrc` 再读 resource timing。页面加载完成后 2.5s 起每 2.5s 探一次，最多约 35s；
    - **成功判据**：视频链接必须解析出 `MediaKind.VIDEO`；只有 `og:image` 封面不算成功，继续探到超时。只有图文才接受图片；
    - **错误页兜底**：探针读到页面出现「抱歉出错了 / 请尝试在抖音内观看 / 作品不存在」且当前是分享页时，自动改载旧路径 `https://www.douyin.com/{video|note}/{id}` 再试一轮；两轮都拿不到 `VIDEO` 才走超时兜底；
-   - **直链候选**：只认 `douyinvod` / `byteicdn` / `video/tos` / `.mp4`；`performance` 里出现 `aweme/v1/play` 也不当候选（它是签名跳转口，App 内下载 403）；
-   - 解析顺序：`item_list`（iteminfo）→ `aweme_detail`（含 `aweme_detail.aweme_detail` 二次包裹）→ 页面 HTML → 只有直链的合成路径；
+   - **直链候选**：只认 `douyinvod` / `byteicdn` / `video/tos` / `.mp4`；
+   - **播放跳转口**：`shouldInterceptRequest` 额外收集 `/aweme/v1/play(wm)/`，探针把 DOM 的 `<video>.currentSrc` 也补进候选；解析时按捕获顺序取第一个 `video_id`，改写为 `www.douyin.com/aweme/v1/play/` 后跟随 302，落点必须是 CDN 才采用（`DouyinPlayUrls`）。失败时用 `video_id` 回退 `ratio=720p`；
+   - 解析顺序：`item_list`（iteminfo）→ `aweme_detail`（含 `aweme_detail.aweme_detail` 二次包裹）→ 页面 HTML → 播放跳转口解析 → 只有直链的合成路径；
    - ID 必须匹配：链接带 `contentId` 时，响应里 `aweme_id` 不同的条目一律丢弃（页面会预取相关推荐）。
 3. **只有直链、没有 JSON**：分享页真实播放时嗅到的 CDN 地址 + SEO 的标题/作者/封面，合成一条 `VIDEO` 媒体（`DouyinJsonParser.synthesize`）；`duration` 未知，不猜。
 4. **拦截重放（备用）**：`shouldInterceptRequest` 捕获 iteminfo/detail 请求，用同 URL + 页面 Cookie 在后台重放；**不替换页面响应**（否则页面拿不到数据、视频反而不会加载）。匿名重放多数返回 200/0 或 403，属预期。
 5. **超时**：45 秒内没有 `VIDEO` / 渲染崩溃 / 未登录 → 用 SEO 内容生成 `PARTIAL`，文案给出「重试 / 去登录扫码 / 只保留链接」三条出口。
 6. **图片规则**：只接受 `~tplv-dy-aweme-images` 模板；过滤头像、作者其他作品 300×400 缩略图、页面静态资源。
-7. **视频直链规则**：优先直连 CDN（`douyinvod` / `byteicdn` / `video/tos`），其次 `mime_type=video_mp4`，最后才用 `url_list` 里剩下的地址；`/aweme/v1/play/` 是带签名的跳转口，App 里容易被判 403。**不取** `download_addr`（带水印）。
+7. **视频直链规则**：优先直连 CDN（`douyinvod` / `byteicdn` / `video/tos`），其次 `mime_type=video_mp4`，最后才用 `url_list` 里剩下的地址；`/aweme/v1/play/` 只作为**跳转口**使用，先跟随 302 再下载，不把它当最终文件地址。**不取** `download_addr`（带水印）。
 
 ## 5. 下载
 
@@ -201,6 +211,7 @@ data class ExtractedContent(
 
 ## 10. 验证
 
-- 单元测试：`TextParserTest`、`DouyinJsonLdParserTest`、`DouyinJsonParserTest`、`XhsWebViewParserTest`、`ExtractorMockTest`（MockWebServer）。
+- 单元测试：`TextParserTest`、`DouyinJsonLdParserTest`、`DouyinJsonParserTest`、`DouyinPlayUrlsTest`、`XhsWebViewParserTest`、`ExtractorMockTest`（MockWebServer）。
+- 抖音端到端验收：`bash android/tools/douyin-e2e.sh`（模拟器上真实收录视频/图文两条分享链接，检查落盘文件与数据库）。
 - 真机回归样本见 [`test-data.md`](test-data.md)。
 - 平台改版排查顺序：短链 → 页面/接口 → 字段路径 → 下载 headers → 文件落盘。

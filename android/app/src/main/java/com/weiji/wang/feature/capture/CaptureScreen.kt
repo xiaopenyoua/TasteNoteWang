@@ -62,6 +62,7 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.weiji.wang.core.data.db.DraftEntity
 import com.weiji.wang.core.import.DouyinJsonParser
+import com.weiji.wang.core.import.DouyinPlayUrls
 import com.weiji.wang.core.import.DouyinWebViewParser
 import com.weiji.wang.core.import.ExtractException
 import com.weiji.wang.core.import.ExtractedContent
@@ -640,8 +641,13 @@ private fun DouyinWebView(
     onTimeout: () -> Unit,
     onFailed: (String) -> Unit,
 ) {
-    val context = LocalContext.current
     val captured = remember { linkedSetOf<String>() }
+    // 页面播放器自己请求的 /aweme/v1/play(wm)/ 跳转口：里面带 video_id，跟一次 302 就是 CDN 直链。
+    // 分享页的 reflow 接口只回封面上限数据（无 play_addr），这条是视频唯一的可靠来源。
+    val playCandidates = remember { java.util.Collections.synchronizedSet(mutableSetOf<String>()) }
+    // DOM 里第一个 <video> 是主播放器，优先于拦截到的推荐位请求。
+    val domPlayCandidates = remember { java.util.Collections.synchronizedList(mutableListOf<String>()) }
+    val resolvingPlay = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     val requestLog = remember { java.util.concurrent.atomic.AtomicInteger(0) }
     val http = remember { HttpClients.create() }
     var done by remember { mutableStateOf(false) }
@@ -681,6 +687,37 @@ private fun DouyinWebView(
         } else {
             parsed.takeIf { hasVideo }
         }
+    }
+
+    /**
+     * `/aweme/v1/play(wm)/?video_id=…` 是分享页播放器发出的 302 跳转口，不需要签名：
+     * 去掉 wm 并统一到 www.douyin.com 后跟随重定向，`response.request.url` 就是 douyinvod 直链。
+     * 2026-11-05 实测 playwm/play 都返回 302，`play` 才是无水印版本。
+     */
+    fun resolvePlay(raw: String): String? {
+        val noWatermark = DouyinPlayUrls.noWatermark(raw)
+        fun follow(target: String): String? = runCatching {
+            val request = Request.Builder()
+                .url(target)
+                .header("User-Agent", HttpClients.MOBILE_UA)
+                .header("Referer", "https://www.douyin.com/")
+                .header("Accept", "*/*")
+                .build()
+            http.newCall(request).execute().use { response ->
+                val finalUrl = response.request.url.toString()
+                val isCdn = DouyinPlayUrls.isCdn(finalUrl)
+                android.util.Log.d(
+                    "WeijiImport",
+                    "play ${response.code} ${if (isCdn) "cdn" else "miss"}: ${finalUrl.take(140)}",
+                )
+                if (response.isSuccessful && isCdn) finalUrl else null
+            }
+        }.getOrNull()
+        follow(noWatermark)?.let { return it }
+        follow(raw)?.let { return it }
+        // 有些分享页把 ratio 写成 540p/1080p，目标清晰度不存在时 404；用 video_id 回退 720p。
+        val id = DouyinPlayUrls.videoId(raw)
+        return id?.let { follow(DouyinPlayUrls.fromVideoId(it)) }
     }
 
     /** 备用路径：用页面 Cookie 重放同一个接口（页面自己的签名请求我们无法伪造）。 */
@@ -817,7 +854,11 @@ private fun DouyinWebView(
                             }
                             return null
                         }
-                        // 只收直连 CDN；aweme/v1/play 是签名跳转口，收进来只会换来 403
+                        if (requestUrl.contains("/aweme/v1/play", true)) {
+                            playCandidates += requestUrl
+                            android.util.Log.d("WeijiImport", "play candidate: ${requestUrl.take(200)}")
+                        }
+                        // 只收直连 CDN；aweme/v1/play 是跳转口，先解析再当直链
                         if (requestUrl.contains("douyinvod", true) ||
                             requestUrl.contains("byteicdn", true) ||
                             requestUrl.contains("video/tos", true) ||
@@ -946,6 +987,16 @@ private fun DouyinWebView(
                                     collect(obj?.optJSONArray("media"))
                                     collect(obj?.optJSONArray("videos"))
                                     captured.forEach { sniffed += it }
+                                    // DOM 里的 <video>.currentSrc 也可能是 play(wm) 跳转口；
+                                    // 主播放器在 DOM 里排第一，优先于拦截到的请求（可能是推荐位）。
+                                    obj?.optJSONArray("videos")?.let { arr ->
+                                        for (i in 0 until arr.length()) {
+                                            val value = arr.optString(i)
+                                            if (value.contains("/aweme/v1/play", true)) {
+                                                domPlayCandidates += value
+                                            }
+                                        }
+                                    }
 
                                     if (parsed == null) {
                                         val combined = buildString {
@@ -974,6 +1025,36 @@ private fun DouyinWebView(
                                             }.getOrNull(),
                                             pageUrl,
                                         )
+                                    }
+
+                                    // 4) reflow 接口只有封面、没有 play_addr：把播放器的 play(wm) 跳转口解析成 CDN 直链
+                                    if (parsed == null && playCandidates.isNotEmpty() &&
+                                        resolvingPlay.compareAndSet(false, true)
+                                    ) {
+                                        // 主播放器（DOM）→ 拦截顺序；不排序，避免推荐位把目标视频换掉。
+                                        val candidates = (domPlayCandidates.toList() + playCandidates.toList())
+                                            .distinct()
+                                        Thread {
+                                            try {
+                                                val resolved = candidates.firstNotNullOfOrNull { resolvePlay(it) }
+                                                if (resolved != null) {
+                                                    val content = acceptParsed(
+                                                        runCatching {
+                                                            DouyinJsonParser.synthesize(
+                                                                listOf(resolved),
+                                                                seo,
+                                                                link,
+                                                                pageUrl,
+                                                            )
+                                                        }.getOrNull(),
+                                                        pageUrl,
+                                                    )
+                                                    if (content != null) view?.post { finish(content) }
+                                                }
+                                            } finally {
+                                                resolvingPlay.set(false)
+                                            }
+                                        }.start()
                                     }
 
                                     // 分享页渲染出「抱歉出错了 / 请尝试在抖音内观看 / 作品不存在」时，
