@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import okhttp3.Request
@@ -272,7 +273,9 @@ fun CaptureScreen(nav: NavHostController, initialText: String, initialUris: List
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it; if (state !is CaptureState.Idle) vm.reset() },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("capture-input"),
                     minLines = 4,
                     maxLines = 8,
                     shape = RoundedCornerShape(16.dp),
@@ -305,6 +308,14 @@ fun CaptureScreen(nav: NavHostController, initialText: String, initialUris: List
                             onClick = { vm.analyze(text) },
                         )
                     }
+                    SecondaryButton(
+                        text = "清空",
+                        onClick = {
+                            text = ""
+                            autoStarted = false
+                            vm.reset()
+                        },
+                    )
                     SecondaryButton(text = "手动创建", onClick = { nav.navigate("edit/new") })
                 }
                 Spacer(Modifier.height(16.dp))
