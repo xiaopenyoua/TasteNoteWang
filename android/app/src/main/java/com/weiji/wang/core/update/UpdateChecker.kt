@@ -133,7 +133,8 @@ class UpdateChecker(
     }
 
     companion object {
-        const val DEFAULT_REPO = "xiaopenyoua/TasteNoteWang"
+        // 源码仓库是私有的；在线更新只读这个公开的发布仓库，不暴露源码。
+        const val DEFAULT_REPO = "xiaopenyoua/TasteNoteWang-releases"
         private const val MAX_NOTES = 600
 
         /** `v1.0.0` / `1.0.0` / `1.0.0-debug` 都归一成 `1.0.0`。 */
