@@ -2,7 +2,7 @@
 doc: design/product/implemented-ui-spec
 title: 已实现 UI 规格（设计稿 ↔ 代码对照）
 status: accepted
-date: 2026-11-04
+date: 2026-11-05
 owner: wang
 related:
   - design/product/screen-specs
@@ -168,7 +168,7 @@ related:
   - Downloading：「正在保存」+ 4dp `LinearProgressIndicator`（橙色）。
   - Success：「收录完成」+ 对勾 + 「打开菜谱」/「再收一条」。
   - Failed：「没有完整收录」+ 原因 + 「重试」/「去登录」或「手动创建」。
-- 草稿：行圆角 14、`surface`、padding 12；平台徽章 + 单行标题 15/22 + 状态 11（失败红/其他绿）+ 24dp 刷新图标。
+- 草稿：行圆角 14、`surface`、padding 12；平台徽章 + 单行标题 15/22 + 状态 11（失败红/其他绿）+ 右侧「查看/重试」文字。**左滑露出 88dp 红色「删除」**，同一时间只展开一行；再左滑 24dp 或点「删除」立即移除草稿，不弹确认。
 - 自动：进入页面读剪贴板含 http 则填入；有链接时 250ms 后自动解析。
 - 代码：`CaptureScreen.kt`。
 
@@ -192,7 +192,7 @@ related:
 - 收录：仅 Wi-Fi 下载媒体（Switch）/ 自动下载视频与图片（Switch）。
 - 平台账号：抖音 / 小红书 / B 站三行，右侧状态（未登录 / 已登录 / 建议重新登录），点进登录页。**没有「清除全部登录信息」**，清除按平台在登录页里做。
 - 体验：外观 + 三段控件「跟随系统 / 浅色 / 深色」。
-- 关于：版本号 + 三段说明（灰 / 红 / 绿）。
+- 关于：版本号 + 「检查更新」+ 三段说明（灰 / 红 / 绿）。检查更新读 GitHub release：发现新版本显示版本号与更新说明，下载显示进度，下载完成显示「安装」；未知来源权限由系统页授予。
 - **已知事实**：三段控件写入 DataStore，但 `MainActivity` 调 `WeijiTheme()` 未传 `darkTheme`，实际只跟随系统主题；设计稿保留控件，但不要声称它能切换。
 - Switch：52×32，滑块 24，选中橙色，100ms 过渡。
 - 代码：`SettingsScreen.kt`、`MainActivity.kt`、`Theme.kt`。

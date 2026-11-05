@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -22,11 +23,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -41,15 +45,30 @@ import com.weiji.wang.BuildConfig
 import com.weiji.wang.core.AppContainer
 import com.weiji.wang.core.data.prefs.ThemeMode
 import com.weiji.wang.core.model.Platform
+import com.weiji.wang.core.update.ApkInstaller
+import com.weiji.wang.core.update.UpdateChecker
+import com.weiji.wang.core.update.UpdateInfo
 import com.weiji.wang.ui.LocalContainer
 import com.weiji.wang.ui.components.PageHeader
+import com.weiji.wang.ui.components.PrimaryButton
 import com.weiji.wang.ui.components.SectionHeader
 import com.weiji.wang.ui.components.SegmentedControl
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 enum class AccountLevel { OK, WARN, NONE }
+
+sealed interface UpdateUiState {
+    data object Idle : UpdateUiState
+    data object Checking : UpdateUiState
+    data class UpToDate(val current: String) : UpdateUiState
+    data class Available(val info: UpdateInfo) : UpdateUiState
+    data class Downloading(val info: UpdateInfo, val percent: Int) : UpdateUiState
+    data class Ready(val info: UpdateInfo, val file: File) : UpdateUiState
+    data class Failed(val message: String) : UpdateUiState
+}
 
 data class AccountStatus(val label: String, val level: AccountLevel)
 
@@ -63,6 +82,9 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     val autoDownload = container.settings.autoDownloadMedia
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
+    var update by mutableStateOf<UpdateUiState>(UpdateUiState.Idle)
+        private set
+
     fun setTheme(mode: ThemeMode) {
         viewModelScope.launch { container.settings.setTheme(mode) }
     }
@@ -73,6 +95,41 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun setAutoDownload(value: Boolean) {
         viewModelScope.launch { container.settings.setAutoDownloadMedia(value) }
+    }
+
+    fun checkForUpdate() {
+        if (update is UpdateUiState.Checking || update is UpdateUiState.Downloading) return
+        update = UpdateUiState.Checking
+        viewModelScope.launch {
+            update = runCatching { container.updates.latest() }
+                .fold(
+                    onSuccess = { info ->
+                        if (info == null || !UpdateChecker.isNewer(info.version, BuildConfig.VERSION_NAME)) {
+                            UpdateUiState.UpToDate(BuildConfig.VERSION_NAME)
+                        } else {
+                            UpdateUiState.Available(info)
+                        }
+                    },
+                    onFailure = { UpdateUiState.Failed(it.message ?: "检查更新失败") },
+                )
+        }
+    }
+
+    fun download(info: UpdateInfo) {
+        if (update is UpdateUiState.Downloading) return
+        update = UpdateUiState.Downloading(info, 0)
+        viewModelScope.launch {
+            runCatching {
+                container.updates.download(
+                    info = info,
+                    directory = File(container.appContext.cacheDir, "update"),
+                    onProgress = { percent -> update = UpdateUiState.Downloading(info, percent) },
+                )
+            }.fold(
+                onSuccess = { file -> update = UpdateUiState.Ready(info, file) },
+                onFailure = { update = UpdateUiState.Failed(it.message ?: "下载失败") },
+            )
+        }
     }
 
     fun accountStatus(platform: Platform): AccountStatus {
@@ -207,6 +264,12 @@ fun SettingsScreen(nav: NavHostController) {
             SettingsGroup {
                 SettingsRow(title = "版本", value = BuildConfig.VERSION_NAME)
                 HairlineRow()
+                UpdateRow(
+                    state = vm.update,
+                    onCheck = vm::checkForUpdate,
+                    onDownload = vm::download,
+                )
+                HairlineRow()
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "味记・王 是一个只给自己用的厨房笔记。没有账号、没有广告、没有上传。平台登录信息仅用于你主动发起的链接解析，加密保存在本机，不会进入备份。",
@@ -257,6 +320,95 @@ private fun AccountStatusView(status: AccountStatus) {
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun UpdateRow(
+    state: UpdateUiState,
+    onCheck: () -> Unit,
+    onDownload: (UpdateInfo) -> Unit,
+) {
+    val context = LocalContext.current
+    Column {
+        SettingsRow(
+            title = "检查更新",
+            value = when (state) {
+                is UpdateUiState.Idle -> "点击检查"
+                is UpdateUiState.Checking -> "检查中…"
+                is UpdateUiState.UpToDate -> "已是最新"
+                is UpdateUiState.Available -> "发现 v${state.info.version}"
+                is UpdateUiState.Downloading -> "下载中 ${state.percent}%"
+                is UpdateUiState.Ready -> "已下载 v${state.info.version}"
+                is UpdateUiState.Failed -> "检查失败"
+            },
+            chevron = state is UpdateUiState.Idle || state is UpdateUiState.UpToDate ||
+                state is UpdateUiState.Failed,
+            onClick = onCheck,
+        )
+        when (state) {
+            is UpdateUiState.Available -> UpdateBody(
+                title = "新版本 v${state.info.version}",
+                body = state.info.notes.ifBlank { "修复问题并改进体验。" },
+                action = "下载并安装",
+                onClick = { onDownload(state.info) },
+            )
+            is UpdateUiState.Downloading -> Column(modifier = Modifier.padding(16.dp)) {
+                LinearProgressIndicator(
+                    progress = { state.percent / 100f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "正在下载 v${state.info.version}（${state.percent}%）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            is UpdateUiState.Ready -> Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "v${state.info.version} 已下载，安装前系统会再确认一次。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                PrimaryButton(
+                    text = "安装 v${state.info.version}",
+                    onClick = {
+                        if (!ApkInstaller.install(context, state.file)) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "请先允许本应用安装未知来源应用",
+                                android.widget.Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                    },
+                )
+            }
+            is UpdateUiState.Failed -> UpdateBody(
+                title = "没有检查成功",
+                body = state.message,
+                action = "重试",
+                onClick = onCheck,
+            )
+            else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun UpdateBody(title: String, body: String, action: String, onClick: () -> Unit) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(text = title, style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = body,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 6,
+        )
+        Spacer(Modifier.height(12.dp))
+        PrimaryButton(text = action, onClick = onClick)
     }
 }
 

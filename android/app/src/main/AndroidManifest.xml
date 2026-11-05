@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 在线更新：把下载到 cache 的 APK 交给系统安装器 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- 仅在 API 26–28 用 MediaStore.insertImage 存二维码到相册；29+ 走 RELATIVE_PATH 不需要权限 -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"

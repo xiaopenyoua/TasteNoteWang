@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -15,14 +17,32 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
 
+    // 发布签名只放在本机 local/keystore（gitignore）；缺文件时 release 构建会明确失败，
+    // 避免误把 debug 签名的 APK 发出去，导致后续在线更新签名不一致。
+    val releasePropsFile = rootProject.file("../local/keystore/release.properties")
+    val releaseProps = Properties().apply {
+        if (releasePropsFile.exists()) releasePropsFile.inputStream().use { load(it) }
+    }
+    signingConfigs {
+        create("release") {
+            if (releasePropsFile.exists()) {
+                storeFile = rootProject.file(releaseProps.getProperty("storeFile"))
+                storePassword = releaseProps.getProperty("storePassword")
+                keyAlias = releaseProps.getProperty("keyAlias")
+                keyPassword = releaseProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

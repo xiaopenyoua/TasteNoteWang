@@ -13,6 +13,7 @@ import com.weiji.wang.core.import.ImportCoordinator
 import com.weiji.wang.core.import.extractor.ExtractorRegistry
 import com.weiji.wang.core.storage.BackupManager
 import com.weiji.wang.core.storage.FileStore
+import com.weiji.wang.core.update.UpdateChecker
 import okhttp3.OkHttpClient
 
 class AppContainer(context: Context) {
@@ -36,4 +37,5 @@ class AppContainer(context: Context) {
     val extractors = ExtractorRegistry(http, cookies)
     val importer = ImportCoordinator(appContext, database, files, recipes, extractors, settings, http)
     val backup = BackupManager(appContext, database, recipes, files)
+    val updates = UpdateChecker(http)
 }

@@ -80,6 +80,7 @@ import com.weiji.wang.ui.components.PlatformBadge
 import com.weiji.wang.ui.components.PrimaryButton
 import com.weiji.wang.ui.components.SecondaryButton
 import com.weiji.wang.ui.components.SectionHeader
+import com.weiji.wang.ui.components.SwipeToRevealDelete
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -220,6 +221,8 @@ fun CaptureScreen(nav: NavHostController, initialText: String, initialUris: List
     val clipboard = LocalClipboardManager.current
     var text by rememberSaveable { mutableStateOf(initialText.ifBlank { "" }) }
     var autoStarted by rememberSaveable { mutableStateOf(false) }
+    // 同一时间只展开一条「最近收录」的左滑删除。
+    var openDraftId by rememberSaveable { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -399,8 +402,19 @@ fun CaptureScreen(nav: NavHostController, initialText: String, initialUris: List
             items(drafts, key = { it.id }) { draft ->
                 DraftRow(
                     draft = draft,
+                    revealed = openDraftId == draft.id,
+                    onRevealedChange = { revealed ->
+                        openDraftId = when {
+                            revealed -> draft.id
+                            openDraftId == draft.id -> null
+                            else -> openDraftId
+                        }
+                    },
                     onRetry = { vm.analyze(draft.shareText) },
-                    onDiscard = { vm.discard(draft.id) },
+                    onDiscard = {
+                        openDraftId = null
+                        vm.discard(draft.id)
+                    },
                     onOpen = { draft.recipeId?.let { nav.navigate("recipe/$it") } },
                 )
             }
@@ -454,57 +468,78 @@ private fun StatusCard(
 @Composable
 private fun DraftRow(
     draft: DraftEntity,
+    revealed: Boolean,
+    onRevealedChange: (Boolean) -> Unit,
     onRetry: () -> Unit,
     onDiscard: () -> Unit,
     onOpen: () -> Unit,
 ) {
-    Row(
+    SwipeToRevealDelete(
+        revealed = revealed,
+        onRevealedChange = onRevealedChange,
+        onDelete = onDiscard,
+        shape = RoundedCornerShape(14.dp),
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 4.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable { if (draft.recipeId != null) onOpen() else onRetry() }
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
-        PlatformBadge(Platform.fromKey(draft.platform), compact = true)
-        Spacer(Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = LinkParser.cleanShareNoise(draft.shareText).lineSequence().firstOrNull().orEmpty()
-                    .ifBlank { draft.url ?: "${Platform.fromKey(draft.platform).label}内容" },
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-            )
-            Text(
-                text = stateLabel(draft.state, draft.error),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (draft.state == ImportState.FAILED.name) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.tertiary,
-            )
-        }
-        if (draft.state == ImportState.READY.name || draft.state == ImportState.PARTIAL.name) {
-            Icon(
-                Icons.Filled.Refresh,
-                contentDescription = "删除",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable(onClick = onDiscard),
-            )
-        } else {
-            Icon(
-                Icons.Filled.Refresh,
-                contentDescription = "重试",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable(onClick = onRetry),
-            )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(if (revealed) DraftCardShape else RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .clickable {
+                    if (revealed) {
+                        onRevealedChange(false)
+                    } else if (draft.recipeId != null) {
+                        onOpen()
+                    } else {
+                        onRetry()
+                    }
+                }
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PlatformBadge(Platform.fromKey(draft.platform), compact = true)
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = LinkParser.cleanShareNoise(draft.shareText).lineSequence().firstOrNull().orEmpty()
+                        .ifBlank { draft.url ?: "${Platform.fromKey(draft.platform).label}内容" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                )
+                Text(
+                    text = stateLabel(draft.state, draft.error),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (draft.state == ImportState.FAILED.name) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.tertiary,
+                )
+            }
+            if (draft.state == ImportState.READY.name || draft.state == ImportState.PARTIAL.name) {
+                Text(
+                    text = "查看",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                Text(
+                    text = "重试",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
+
+// 右侧不圆角：左滑后与删除按钮拼成一条，外层容器负责圆外轮廓。
+private val DraftCardShape = RoundedCornerShape(
+    topStart = 14.dp,
+    topEnd = 0.dp,
+    bottomEnd = 0.dp,
+    bottomStart = 14.dp,
+)
 
 private fun stateLabel(state: String, error: String?): String = when (state) {
     ImportState.RECEIVED.name -> "等待解析"
