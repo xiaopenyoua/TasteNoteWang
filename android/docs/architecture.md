@@ -102,6 +102,11 @@ MediaDownloader（Range + .part + rename）
 - 菜谱网格：宽度 ≥840dp 固定 3 列，否则 2 列。
 - 烹饪模式全屏沉浸：隐藏导航、屏幕常亮、音量键翻步（`CookKeys` 桥接 Activity）。
 - 不锁竖屏；`configChanges` 覆盖旋转/尺寸变化，Compose 自动重排。
+- 全屏视频（`VideoFullscreenDialog`）：Compose Dialog 的内容测量默认只到“可用区域”（不含系统栏），
+  所以窗口设 `MATCH_PARENT` + `FLAG_LAYOUT_IN_SCREEN` + `setFitInsetsTypes(0)` + 刘海 `ALWAYS`，
+  内容用 `currentWindowMetrics` 的整屏像素 `requiredSize` 撑开；`PlayerView` 用 `RESIZE_MODE_ZOOM`
+  等比放大裁切。手势由 `GesturePlayerView` 在 `dispatchTouchEvent` 统一判定：单击用
+  `onSingleTapConfirmed` 切控件、双击只切播放/暂停，进度条与按钮矩形内的触摸原样透传。
 - 外接键盘/焦点导航：自定义按钮、卡片、FAB 使用 `focusRing` 提供焦点描边。
 
 ## 6. 错误与降级
