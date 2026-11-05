@@ -110,7 +110,7 @@ related:
 
 ## 7. 深链接与快捷方式
 
-- `weiji://open?url=...` → 收录页并自动解析。
+- `weiji://open?url=...` → 收录页并填入链接；解析需用户手动点「解析」。
 - 桌面快捷方式：`paste` → 收录页聚焦粘贴框。
 - 分享 Intent：`text/plain`、`image/*`、`video/*`、`SEND_MULTIPLE` → 收录页。
 - 通知（下载完成/计时结束）→ 对应菜谱或烹饪页。

@@ -221,9 +221,10 @@ fun CaptureScreen(nav: NavHostController, initialText: String, initialUris: List
     val drafts by vm.drafts.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     var text by rememberSaveable { mutableStateOf(initialText.ifBlank { "" }) }
-    var autoStarted by rememberSaveable { mutableStateOf(false) }
     // 同一时间只展开一条「最近收录」的左滑删除。
     var openDraftId by rememberSaveable { mutableStateOf<String?>(null) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -239,15 +240,8 @@ fun CaptureScreen(nav: NavHostController, initialText: String, initialUris: List
         }
     }
 
-    LaunchedEffect(text) {
-        if (!autoStarted && text.isNotBlank() && text.contains("http")) {
-            autoStarted = true
-            delay(250)
-            vm.analyze(text)
-        }
-    }
-
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 40.dp),
     ) {
@@ -312,7 +306,6 @@ fun CaptureScreen(nav: NavHostController, initialText: String, initialUris: List
                         text = "清空",
                         onClick = {
                             text = ""
-                            autoStarted = false
                             vm.reset()
                         },
                     )
@@ -421,7 +414,11 @@ fun CaptureScreen(nav: NavHostController, initialText: String, initialUris: List
                             else -> openDraftId
                         }
                     },
-                    onRetry = { vm.analyze(draft.shareText) },
+                    onUse = {
+                        text = draft.shareText
+                        vm.reset()
+                        scope.launch { listState.animateScrollToItem(0) }
+                    },
                     onDiscard = {
                         openDraftId = null
                         vm.discard(draft.id)
@@ -481,7 +478,7 @@ private fun DraftRow(
     draft: DraftEntity,
     revealed: Boolean,
     onRevealedChange: (Boolean) -> Unit,
-    onRetry: () -> Unit,
+    onUse: () -> Unit,
     onDiscard: () -> Unit,
     onOpen: () -> Unit,
 ) {
@@ -505,7 +502,7 @@ private fun DraftRow(
                     } else if (draft.recipeId != null) {
                         onOpen()
                     } else {
-                        onRetry()
+                        onUse()
                     }
                 }
                 .padding(12.dp),
@@ -535,7 +532,7 @@ private fun DraftRow(
                 )
             } else {
                 Text(
-                    text = "重试",
+                    text = "填入",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
