@@ -620,7 +620,7 @@ private fun RecipeCoverHeader(
             relativePath = coverPath,
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (wide) Modifier.height(380.dp) else Modifier.aspectRatio(4f / 5f)),
+                .then(if (wide) Modifier.height(360.dp) else Modifier.aspectRatio(5f / 6f)),
             shape = RoundedCornerShape(0.dp),
             fallback = {
                 Box(

@@ -107,15 +107,24 @@ class ImportCoordinator(
         val recipeId = Ulid.next()
         val recipeDir = files.recipeDir(recipeId)
 
-        val autoDownload = settings.autoDownloadMedia.first()
-        val wifiOnly = settings.wifiOnly.first()
-        val canDownload = autoDownload && (!wifiOnly || isOnWifi())
-
         val savedMedia = mutableListOf<MediaEntity>()
         var coverPath: String? = null
         var partial = content.fetchStatus != FetchStatus.OK
         var videoFailure: String? = null
+        var mediaSkipReason: String? = null
         var downloadedVideo: File? = null
+
+        val autoDownload = settings.autoDownloadMedia.first()
+        val wifiOnly = settings.wifiOnly.first()
+        val wifiAvailable = !wifiOnly || isOnWifi()
+        val canDownload = autoDownload && wifiAvailable
+        if (!canDownload && (content.media.isNotEmpty() || content.coverUrl != null)) {
+            partial = true
+            mediaSkipReason = when {
+                !autoDownload -> "自动下载视频与图片已关闭"
+                else -> "仅 Wi-Fi 下载已开启，当前网络不是 Wi-Fi"
+            }
+        }
 
         val candidates = content.media.sortedBy {
             when (it.kind) {
@@ -212,7 +221,7 @@ class ImportCoordinator(
             }
         }
 
-        if (content.coverUrl != null && coverPath == null) {
+        if (canDownload && content.coverUrl != null && coverPath == null) {
             val remoteCover = RemoteMedia(
                 kind = MediaKind.COVER,
                 url = content.coverUrl,
@@ -325,6 +334,9 @@ class ImportCoordinator(
             partial = finalState != ImportState.READY,
             // 视频失败原因必须让用户看到：不能被解析阶段的提示文案盖掉。
             message = when {
+                mediaSkipReason != null ->
+                    "已按设置跳过媒体下载（$mediaSkipReason），只保存了链接和文字；" +
+                        "到「设置 → 收录」调整后重新收录即可。"
                 videoFailure != null && !content.message.isNullOrBlank() ->
                     "${content.message}；视频下载失败（$videoFailure），封面和文字已保存"
                 videoFailure != null -> "视频下载失败（$videoFailure），封面和文字已保存"
@@ -450,7 +462,14 @@ class ImportCoordinator(
         val cm = context.getSystemService(ConnectivityManager::class.java) ?: return false
         val network = cm.activeNetwork ?: return false
         val caps = cm.getNetworkCapabilities(network) ?: return false
-        return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
             caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+        ) {
+            return true
+        }
+        // VPN 会接管 activeNetwork，只暴露 TRANSPORT_VPN；此时用「是否计费」判断底层网络。
+        // 不修这条时，开着 VPN 的手机即使连的是 Wi-Fi，也会被当成移动网络而跳过所有媒体，
+        // 最后只剩封面（cover 兜底不受 canDownload 约束）——用户看到的就是「只有封面」。
+        return caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) && !cm.isActiveNetworkMetered
     }
 }
