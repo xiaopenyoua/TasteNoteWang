@@ -51,12 +51,33 @@ wait_files() {
   return 1
 }
 
+# 分享/粘贴后不再自动解析：脚本必须像用户一样点一次「解析」。
+tap_parse() {
+  adb_ shell uiautomator dump /sdcard/weiji-e2e-ui.xml >/dev/null 2>&1
+  adb_ exec-out cat /sdcard/weiji-e2e-ui.xml >"$WORK/ui.xml"
+  local xy
+  xy=$(python3 - "$WORK/ui.xml" <<'PY'
+import sys, xml.etree.ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+for node in root.iter("node"):
+    if node.get("text") == "解析":
+        x1, y1, x2, y2 = map(int, node.get("bounds").replace("][", ",").strip("[]").split(","))
+        print((x1 + x2) // 2, (y1 + y2) // 2)
+        break
+PY
+)
+  [[ -n "$xy" ]] || { echo "FAIL 找不到「解析」按钮"; return 1; }
+  adb_ shell input tap $xy
+}
+
 run_case() {
   local name="$1" text="$2" kind="$3" least="$4" glob="$5"
   say "${name}：清空数据并发送分享文案"
   adb_ shell pm clear "$PKG" >/dev/null
   # 文案里含 & @ : 等字符，交给设备端单引号包住，避免被 shell 拆开。
   adb_ shell "am start -n $PKG/$ACT -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT '$text'" >/dev/null
+  sleep 2
+  tap_parse || return 1
   if ! wait_files "/sdcard/Android/data/$PKG/files/weiji/recipes/*/$glob" "$least"; then
     echo "FAIL ${name}：120 秒内没有出现 $least 个 ${kind} 文件"
     adb_ exec-out screencap -p >"$WORK/$name-fail.png"
