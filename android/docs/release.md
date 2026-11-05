@@ -58,13 +58,12 @@ $ANDROID_HOME/build-tools/<版本>/aapt2 dump badging \
    git tag v1.0.0
    git push origin main --tags
    ```
-2. 在公开的发布仓库 `xiaopenyoua/TasteNoteWang-releases` 创建 release
-（源码仓库保持私有；应用内更新只读发布仓库，不需要 token）：
+2. 在 `xiaopenyoua/TasteNoteWang` 创建 release（仓库为 public，应用内更新不需要 token）：
    - tag：`v1.0.0`
    - 标题：`味记 v1.0.0`
    - 附件：`app-release.apk`（可重命名为 `weiji-1.0.0.apk`）
    - 说明：写用户可见的变更；应用内会原样展示前 600 字。
-3. 确认 `https://api.github.com/repos/xiaopenyoua/TasteNoteWang-releases/releases/latest` 返回该版本；
+3. 确认 `https://api.github.com/repos/xiaopenyoua/TasteNoteWang/releases/latest` 返回该版本；
    草稿和 prerelease 不会出现在 `latest`。
 
 ## 5. 应用内更新
