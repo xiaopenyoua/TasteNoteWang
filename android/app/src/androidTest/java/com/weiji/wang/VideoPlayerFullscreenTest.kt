@@ -20,6 +20,7 @@ import androidx.test.espresso.matcher.RootMatchers.isDialog
 import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -29,6 +30,7 @@ import org.junit.runner.RunWith
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * 全屏播放器验收：铺满屏幕（竖屏 / 横屏）、单击显隐控件、双击播放/暂停且不动控件、
@@ -53,7 +55,7 @@ class VideoPlayerFullscreenTest {
     }
 
     @Test
-    fun fullscreenFillsScreenInPortraitAndLandscape() {
+    fun letterboxFillsScreenAndVideoKeepsAspect() {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         try {
             automation.setRotation(UiAutomation.ROTATION_FREEZE_0)
@@ -61,7 +63,7 @@ class VideoPlayerFullscreenTest {
             renderFirstFrameAndHideController()
 
             val portrait = screenshot()
-            assertVideoFills(portrait, "竖屏")
+            assertFullBleedLetterbox(portrait, "竖屏")
             assertPlayerMatchesScreen(portrait, "竖屏")
 
             automation.setRotation(UiAutomation.ROTATION_FREEZE_90)
@@ -72,7 +74,7 @@ class VideoPlayerFullscreenTest {
             Thread.sleep(300)
 
             val landscape = screenshot()
-            assertVideoFills(landscape, "横屏")
+            assertFullBleedLetterbox(landscape, "横屏")
             assertPlayerMatchesScreen(landscape, "横屏")
         } finally {
             automation.setRotation(UiAutomation.ROTATION_FREEZE_0)
@@ -280,16 +282,24 @@ class VideoPlayerFullscreenTest {
         InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot(),
     ) { "截屏失败" }
 
-    private fun assertVideoFills(bitmap: Bitmap, label: String) {
-        val samples = listOf(
-            2 to 2,
-            bitmap.width - 3 to 2,
-            2 to bitmap.height - 3,
-            bitmap.width - 3 to bitmap.height - 3,
-            bitmap.width / 2 to 2,
-            bitmap.width / 2 to bitmap.height - 3,
-        )
-        samples.forEach { (x, y) ->
+    /**
+     * 验收标准（用户口径）：
+     * 1. 视频不拉伸、不裁切，完整按 16:9 显示；
+     * 2. 视频以外的黑边必须铺满整个屏幕，四角是纯黑，不能露出后面的页面。
+     */
+    private fun assertFullBleedLetterbox(bitmap: Bitmap, label: String) {
+        val video = magentaBounds(bitmap)
+        val width = bitmap.width
+        val height = bitmap.height
+        val blackPoints = buildList {
+            addAll(listOf(2 to 2, width - 3 to 2, 2 to height - 3, width - 3 to height - 3))
+            // 视频矩形之外、屏幕之内的区域必须是播放器的黑底（横屏是左右黑边、竖屏是上下黑边）。
+            if (video.left > 4) add(video.left - 3 to height / 2)
+            if (video.right < width - 4) add(video.right + 3 to height / 2)
+            if (video.top > 4) add(width / 2 to video.top - 3)
+            if (video.bottom < height - 4) add(width / 2 to video.bottom + 3)
+        }
+        blackPoints.forEach { (x, y) ->
             val color = bitmap.getPixel(x, y)
             val r = (color shr 16) and 0xFF
             val g = (color shr 8) and 0xFF
@@ -297,12 +307,75 @@ class VideoPlayerFullscreenTest {
             assertTrue(
                 String.format(
                     Locale.US,
-                    "%s (%d,%d) 不是视频画面而是黑边：#%06X",
+                    "%s (%d,%d) 应是被播放器铺满的黑色，实际 #%06X",
                     label, x, y, color and 0xFFFFFF,
                 ),
-                r > 150 && b > 150 && g < 110,
+                r < 24 && g < 24 && b < 24,
             )
         }
+        val screenWidth = width
+        val screenHeight = height
+        val videoAspect = 16f / 9f
+        val screenAspect = screenWidth.toFloat() / screenHeight
+        val expectedWidth: Int
+        val expectedHeight: Int
+        if (screenAspect < videoAspect) {
+            expectedWidth = screenWidth
+            expectedHeight = (screenWidth / videoAspect).roundToInt()
+        } else {
+            expectedHeight = screenHeight
+            expectedWidth = (screenHeight * videoAspect).roundToInt()
+        }
+        assertTrue(
+            String.format(
+                Locale.US,
+                "%s 视频应完整显示为 %dx%d，实际画面 %dx%d（%s）",
+                label, expectedWidth, expectedHeight, video.width(), video.height(), video,
+            ),
+            abs(video.width() - expectedWidth) <= 4 && abs(video.height() - expectedHeight) <= 4,
+        )
+        assertTrue(
+            String.format(Locale.US, "%s 视频应居中，实际 %s", label, video),
+            abs(video.centerX() - screenWidth / 2) <= 4 && abs(video.centerY() - screenHeight / 2) <= 4,
+        )
+        assertEquals(
+            "$label 视频比例不应被拉伸",
+            videoAspect,
+            video.width().toFloat() / video.height().toFloat(),
+            0.02f,
+        )
+    }
+
+    /** 纯洋红视频的可见区域：沿屏幕中线扫描，视频是整块纯色。 */
+    private fun magentaBounds(bitmap: Bitmap): android.graphics.Rect {
+        fun isMagenta(x: Int, y: Int): Boolean {
+            val color = bitmap.getPixel(x, y)
+            val r = (color shr 16) and 0xFF
+            val g = (color shr 8) and 0xFF
+            val b = color and 0xFF
+            return r > 150 && b > 150 && g < 110
+        }
+
+        val cx = bitmap.width / 2
+        val cy = bitmap.height / 2
+        var top = -1
+        var bottom = -1
+        for (y in 0 until bitmap.height) {
+            if (isMagenta(cx, y)) {
+                if (top < 0) top = y
+                bottom = y
+            }
+        }
+        var left = -1
+        var right = -1
+        for (x in 0 until bitmap.width) {
+            if (isMagenta(x, cy)) {
+                if (left < 0) left = x
+                right = x
+            }
+        }
+        assertTrue("未找到视频画面（洋红）", top >= 0 && left >= 0)
+        return android.graphics.Rect(left, top, right + 1, bottom + 1)
     }
 
     private fun assertPlayerMatchesScreen(bitmap: Bitmap, label: String) {

@@ -15,8 +15,8 @@ related:
 
 | 位置 | 值 | 规则 |
 |---|---|---|
-| `android/app/build.gradle.kts` `versionName` | `1.0.2` | 展示给用户、与 GitHub tag 对应（tag 加 `v`） |
-| `android/app/build.gradle.kts` `versionCode` | `3` | 每次发布必须递增；Android 用它判断能否覆盖安装 |
+| `android/app/build.gradle.kts` `versionName` | `1.0.3` | 展示给用户、与 GitHub tag 对应（tag 加 `v`） |
+| `android/app/build.gradle.kts` `versionCode` | `4` | 每次发布必须递增；Android 用它判断能否覆盖安装 |
 | `BuildConfig.VERSION_NAME` | 同上 | 应用内「我的 → 关于 → 版本」与更新比较的唯一来源 |
 
 ## 2. 签名

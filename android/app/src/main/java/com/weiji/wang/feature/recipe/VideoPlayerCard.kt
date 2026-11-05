@@ -126,7 +126,7 @@ fun VideoPlayerCard(
 
     val currentOnFullscreen by rememberUpdatedState(onFullscreen)
 
-    Box(modifier = modifier.clip(RoundedCornerShape(14.dp))) {
+    Box(modifier = modifier.clip(RoundedCornerShape(14.dp)).background(Color.Black)) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
@@ -134,8 +134,8 @@ fun VideoPlayerCard(
                     this.player = player
                     useController = true
                     controllerShowTimeoutMs = 3_000
-                    // 卡片也铺满：视频等比放大到盖住 16:9 容器，不把画面缩进黑框里。
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    // 卡片保持原始比例：视频完整可见，多余区域露黑底，不裁画面。
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                     setShowNextButton(false)
                     setShowPreviousButton(false)
@@ -150,7 +150,7 @@ fun VideoPlayerCard(
             },
             update = { view ->
                 view.player = player
-                view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                 view.findViewById<View>(R.id.exo_fullscreen)?.visibility =
                     if (currentOnFullscreen != null) View.VISIBLE else View.GONE
             },
@@ -410,8 +410,8 @@ fun VideoFullscreenDialog(player: ExoPlayer, onDismiss: () -> Unit) {
                         this.player = player
                         useController = true
                         controllerShowTimeoutMs = 3_000
-                        // 铺满全屏：视频等比放大到盖住整个容器，超出部分裁掉，不留黑边。
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        // 全屏只铺满“播放器”本身：视频保持比例完整显示，黑边延伸到屏幕四边。
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                         setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                         setShowNextButton(false)
                         setShowPreviousButton(false)
@@ -483,7 +483,7 @@ fun VideoFullscreenDialog(player: ExoPlayer, onDismiss: () -> Unit) {
                 },
                 update = { view ->
                     view.player = player
-                    view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                 },
             )
 

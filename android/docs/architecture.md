@@ -104,8 +104,8 @@ MediaDownloader（Range + .part + rename）
 - 不锁竖屏；`configChanges` 覆盖旋转/尺寸变化，Compose 自动重排。
 - 全屏视频（`VideoFullscreenDialog`）：Compose Dialog 的内容测量默认只到“可用区域”（不含系统栏），
   所以窗口设 `MATCH_PARENT` + `FLAG_LAYOUT_IN_SCREEN` + `setFitInsetsTypes(0)` + 刘海 `ALWAYS`，
-  内容用 `currentWindowMetrics` 的整屏像素 `requiredSize` 撑开；`PlayerView` 用 `RESIZE_MODE_ZOOM`
-  等比放大裁切。手势由 `GesturePlayerView` 在 `dispatchTouchEvent` 统一判定：单击用
+  内容用 `currentWindowMetrics` 的整屏像素 `requiredSize` 撑开；`PlayerView` 用 `RESIZE_MODE_FIT`
+  保持原始比例完整显示，视频外的黑底铺满整屏。手势由 `GesturePlayerView` 在 `dispatchTouchEvent` 统一判定：单击用
   `onSingleTapConfirmed` 切控件、双击只切播放/暂停，进度条与按钮矩形内的触摸原样透传。
 - 外接键盘/焦点导航：自定义按钮、卡片、FAB 使用 `focusRing` 提供焦点描边。
 
